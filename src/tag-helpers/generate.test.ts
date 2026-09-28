@@ -1,0 +1,72 @@
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import type { CemPackage } from "../shared/cem-types.js";
+import { generateTagHelpers } from "./generate.js";
+
+const outputDirectories: string[] = [];
+
+afterEach(() => {
+  for (const directory of outputDirectories.splice(0)) {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+function createOutputDirectory(): string {
+  const directory = mkdtempSync(join(tmpdir(), "dotnet-tools-test-"));
+  outputDirectories.push(directory);
+  return directory;
+}
+
+const manifest: CemPackage = {
+  schemaVersion: "1.0.0",
+  modules: [
+    {
+      path: "components.ts",
+      declarations: [
+        {
+          kind: "class",
+          name: "DatePicker",
+          customElement: true,
+          tagName: "acme-date-picker",
+          description: "Select a date <today> & tomorrow.",
+          attributes: [
+            { name: "disabled", type: { text: "boolean" } },
+            { name: "size", type: { text: '"small" | "large"' }, description: "Picker size" },
+          ],
+        },
+        { kind: "class", name: "Internal", customElement: false, tagName: "internal-element" },
+      ],
+    },
+  ],
+};
+
+describe("generateTagHelpers", () => {
+  it("generates a typed helper and enum for custom elements", () => {
+    const outputDir = createOutputDirectory();
+    const generated = generateTagHelpers(manifest, { outputDir, namespace: "Acme.Components" });
+    const source = readFileSync(generated[0].filePath, "utf8");
+
+    expect(generated.map((file) => file.fileName)).toEqual(["AcmeDatePickerTagHelper.cs"]);
+    expect(source).toContain('[HtmlTargetElement("acme-date-picker")]');
+    expect(source).toContain("public bool Disabled { get; set; }");
+    expect(source).toContain("public enum SizeValue");
+    expect(source).toContain('SizeValue.Small => "small"');
+    expect(source).toContain("Select a date &lt;today&gt; &amp; tomorrow.");
+    expect(source).not.toContain("InternalTagHelper");
+  });
+
+  it("keeps unions as strings when enum generation is disabled", () => {
+    const outputDir = createOutputDirectory();
+    const generated = generateTagHelpers(manifest, {
+      outputDir,
+      namespace: "Acme.Components",
+      emitEnumsForUnions: false,
+    });
+    const source = readFileSync(generated[0].filePath, "utf8");
+
+    expect(source).toContain("public string? Size { get; set; }");
+    expect(source).not.toContain("enum SizeValue");
+  });
+});

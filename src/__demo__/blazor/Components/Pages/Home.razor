@@ -1,0 +1,39 @@
+@page "/"
+@rendermode InteractiveServer
+
+<PageTitle>Web Awesome Blazor Demo</PageTitle>
+
+<header class="hero">
+    <p class="eyebrow">Blazor Server</p>
+    <h1>Web Awesome, with typed components.</h1>
+    <p>These wrappers and parameters are generated from the Web Awesome Custom Elements Manifest.</p>
+</header>
+
+<section class="panel">
+    <h2>Interactive controls</h2>
+    <div class="grid">
+        <WaInput Label="Your name" Placeholder="Ada Lovelace" Value="@name" />
+        <WaBadge Variant="brand">Profile ready</WaBadge>
+        <WaSpinner />
+    </div>
+    <div class="actions">
+        <WaProgressBar Value="70" Label="Demo progress" />
+    </div>
+</section>
+
+<section class="panel">
+    <h2>Event forwarding</h2>z
+    <p>@status</p>
+    <WaInput Label="Focus this input" OnFocus="HandleFocus" />
+</section>
+
+@code {
+    private string name = string.Empty;
+    private string status = "No event received yet.";
+
+    private Task HandleFocus(CustomEventArgs args)
+    {
+        status = $"Received {args.Type} from Web Awesome.";
+        return Task.CompletedTask;
+    }
+}

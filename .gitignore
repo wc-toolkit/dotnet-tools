@@ -1,0 +1,15 @@
+node_modules/
+dist/
+**/bin/
+**/obj/
+.vs/
+TestResults/
+*.csproj.user
+*.nupkg
+*.snupkg
+.cem-dotnet-publish/
+coverage/
+*.tsbuildinfo
+.npm/
+.DS_Store
+**/Generated/

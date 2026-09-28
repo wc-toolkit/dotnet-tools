@@ -1,0 +1,51 @@
+{
+  "name": "@wc-toolkit/dotnet-tools",
+  "version": "0.1.0",
+  "description": "Generates ASP.NET Tag Helpers and Blazor component wrappers from a Custom Elements Manifest, packaged and published together as one NuGet package.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./plugin": {
+      "types": "./dist/plugin.d.ts",
+      "import": "./dist/plugin.js"
+    },
+    "./tag-helpers": {
+      "types": "./dist/tag-helpers/generate.d.ts",
+      "import": "./dist/tag-helpers/generate.js"
+    },
+    "./blazor": {
+      "types": "./dist/blazor/generate.d.ts",
+      "import": "./dist/blazor/generate.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "demo:razor-pages": "pnpm build && node dist/__demo__/generate-demos.js && dotnet run --project src/__demo__/razor-pages",
+    "demo:blazor": "pnpm build && node dist/__demo__/generate-demos.js && dotnet run --project src/__demo__/blazor",
+    "format": "oxfmt src --write",
+    "format:check": "oxfmt src --check",
+    "lint": "oxlint src",
+    "test": "vitest run",
+    "check": "pnpm format:check && pnpm lint && pnpm build",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "pnpm build && changeset publish"
+  },
+  "peerDependencies": {
+    "custom-elements-manifest": "^2.0.0"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^3.0.3",
+    "@types/node": "^20.14.0",
+    "oxfmt": "^0.70.0",
+    "oxlint": "^1.85.0",
+    "typescript": "^5.5.0",
+    "vitest": "^5.0.2"
+  }
+}

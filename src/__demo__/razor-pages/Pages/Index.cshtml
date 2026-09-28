@@ -1,0 +1,42 @@
+@page
+@model IndexModel
+
+<header class="hero">
+    <p class="eyebrow">ASP.NET Razor Pages</p>
+    <h1>Web Awesome, rendered by Tag Helpers.</h1>
+    <p>These elements are generated from the Web Awesome Custom Elements Manifest.</p>
+</header>
+
+<section class="panel">
+    <h2>Form controls</h2>
+    <div class="grid">
+        <label>
+            Name
+            <wa-input label="Your name" placeholder="Ada Lovelace"></wa-input>
+        </label>
+    </div>
+    <div class="actions">
+        <wa-badge>Profile ready</wa-badge>
+        <wa-spinner label="Saving"></wa-spinner>
+        <wa-progress-bar value="50" label="Loading"></wa-progress-bar>
+    </div>
+</section>
+
+<section class="panel">
+    <h2>Feedback</h2>
+    <p>Generated successfully. This markup is using generated Tag Helpers.</p>
+    <wa-divider></wa-divider>
+    <wa-progress-bar value="test" label="Demo progress"></wa-progress-bar>
+    <wa-accordion action="expand">
+        <wa-accordion-item>
+            <h3 slot="heading">Item 1</h3>
+            <p>Content for item 1.</p>
+        </wa-accordion-item>
+        <wa-accordion-item>
+            <h3 slot="heading">Item 2</h3>
+            <p>Content for item 2.</p>
+        </wa-accordion-item>
+    </wa-accordion>
+</section>
+
+<script src="https://early.webawesome.com/webawesome@3.0.0/dist/webawesome.js"></script>
