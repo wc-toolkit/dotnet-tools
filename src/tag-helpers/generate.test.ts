@@ -34,6 +34,8 @@ const manifest: CemPackage = {
           attributes: [
             { name: "disabled", type: { text: "boolean" } },
             { name: "size", type: { text: '"small" | "large"' }, description: "Picker size" },
+            { name: "spellcheck", type: { text: "boolean" }, default: "true" },
+            { name: "rotate", type: { text: "number" } },
           ],
         },
         { kind: "class", name: "Internal", customElement: false, tagName: "internal-element" },
@@ -68,5 +70,45 @@ describe("generateTagHelpers", () => {
 
     expect(source).toContain("public string? Size { get; set; }");
     expect(source).not.toContain("enum SizeValue");
+  });
+
+  it("makes a boolean that defaults to true tri-state so false can be written", () => {
+    const outputDir = createOutputDirectory();
+    const generated = generateTagHelpers(manifest, { outputDir, namespace: "Acme.Components" });
+    const source = readFileSync(generated[0].filePath, "utf8");
+
+    expect(source).toContain("public bool? Spellcheck { get; set; }");
+    expect(source).toContain(
+      'output.Attributes.SetAttribute("spellcheck", Spellcheck.Value ? "" : "false");',
+    );
+    // A boolean that defaults to off is still plain presence-based.
+    expect(source).toContain("public bool Disabled { get; set; }");
+    expect(source).toContain('output.Attributes.SetAttribute("disabled", "");');
+  });
+
+  it("honours a configured boolean off value", () => {
+    const outputDir = createOutputDirectory();
+    const generated = generateTagHelpers(manifest, {
+      outputDir,
+      namespace: "Acme.Components",
+      booleanOffValue: "off",
+    });
+    const source = readFileSync(generated[0].filePath, "utf8");
+
+    expect(source).toContain(
+      'output.Attributes.SetAttribute("spellcheck", Spellcheck.Value ? "" : "off");',
+    );
+  });
+
+  it("formats numeric attribute values with the invariant culture", () => {
+    const outputDir = createOutputDirectory();
+    const generated = generateTagHelpers(manifest, { outputDir, namespace: "Acme.Components" });
+    const source = readFileSync(generated[0].filePath, "utf8");
+
+    // Without this, a comma-decimal locale renders rotate="2,5", which the element cannot parse.
+    expect(source).toContain("using System.Globalization;");
+    expect(source).toContain(
+      'output.Attributes.SetAttribute("rotate", Rotate.Value.ToString(CultureInfo.InvariantCulture));',
+    );
   });
 });

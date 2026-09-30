@@ -5,10 +5,15 @@ for changing the TypeScript generator and its generated .NET output.
 
 ## Prerequisites
 
-- Node.js 20.19 or newer. Current Node.js LTS is recommended.
+- Node.js 20.19 or newer; CI uses Node 24. Current Node.js LTS is recommended.
 - pnpm, compatible with the lockfile format used by this repository.
 - The .NET 8 SDK if you need to build or inspect a generated RCL.
 - Git.
+
+The generator builds with the native TypeScript 7 compiler, which resolves a platform binary
+through an optional dependency. If `pnpm build` reports that it cannot find `node:fs` and similar
+built-ins, the compiler is not seeing ambient type packages: TypeScript 7 no longer includes
+every `@types/*` package automatically, and `tsconfig.json` must list each one in `compilerOptions.types`.
 
 ## Set up the repository
 
@@ -28,11 +33,15 @@ src/
   index.ts                  Public API and end-to-end generation workflow
   plugin.ts                 onManifestGenerated integration hook
   blazor/generate.ts        .razor and code-behind generation
+  blazor/model.ts           Normalized CEM to Blazor component model
+  blazor/parity.ts          CEM API coverage validation
   tag-helpers/generate.ts   C# Tag Helper generation
   dotnet/scaffold.ts        Generated Razor Class Library files
   dotnet/publish.ts         dotnet restore/build/pack/push orchestration
   shared/                   CEM types, naming, and type mapping
+  __demo__/                 Generated-output demos and fixtures
 dist/                       TypeScript build output, not hand-edited
+vitest.config.ts            Test glob, scoped to src/
 ```
 
 The generator writes temporary integration output to `.cem-dotnet-publish/` by default.
@@ -95,10 +104,25 @@ Run TypeScript in watch mode while developing:
 pnpm dev
 ```
 
-There is currently no `test` script or test suite configured in `package.json`. At a
-minimum, run `pnpm check` for every change. Changes to generated project templates should
-also be checked by running the generated project's `dotnet restore`, `dotnet build`, and
-`dotnet pack` when the .NET SDK and a representative manifest are available.
+Build both generated demo projects, including the generated Blazor and Razor Pages output:
+
+```sh
+pnpm test:generated
+```
+
+Run the unit tests:
+
+```sh
+pnpm test
+```
+
+`pnpm test` runs against `src/` only. `vitest.config.ts` scopes the test glob so compiled
+output in `dist/` is not collected a second time. Run `pnpm check` and `pnpm test` for every
+change, plus `pnpm test:generated` for changes to generated C# or Razor.
+
+The tests assert on generated source text, so they cannot prove runtime behavior. Changes to the
+shared generated base classes, event interop, or input binding should additionally be exercised by
+running a demo app, for example `pnpm demo:blazor`, and loading the page.
 
 ## Making a change
 
@@ -107,9 +131,10 @@ also be checked by running the generated project's `dotnet restore`, `dotnet bui
 3. Update TypeScript source under `src/`; do not edit `dist/` by hand.
 4. Keep generated names, namespaces, and file paths deterministic.
 5. Update `README.md` or this guide when public options, output, or workflows change.
-6. Run `pnpm build` and any available generated-project verification.
-7. Review the diff, including generated declaration changes in `dist/` if build output is tracked by the project.
-8. Open a pull request describing the behavior change and verification performed.
+6. Add a changeset for user-facing package or generated-output behavior.
+7. Run `pnpm check`, `pnpm test`, and `pnpm test:generated`.
+8. Review the diff, including generated declaration changes in `dist/` if build output is tracked by the project.
+9. Open a pull request describing the behavior change and verification performed.
 
 ## Working with generated output
 
@@ -127,10 +152,15 @@ When testing changes to generated C# or Razor, use a small CEM fixture containin
 - One custom event with a detail payload.
 - One element with a slot.
 - Kebab-case tag and attribute names.
+- Members with `privacy` set to `public`, `private`, and absent, to confirm private and protected
+  members are excluded.
+- One inline object shape on an attribute, a method parameter, and a method return.
+- One form-associated element with a live value, exercised with and without `bind-Value`.
 
 Inspect the generated files as well as the compiler output. Verify that event listeners are
-bound and disposed, that union enum values preserve their original attribute strings, and
-that the package contains the expected `build/` and `wwwroot/` assets.
+bound and disposed, that union enum values preserve their original attribute strings, that private
+members produce no generated API, and that the package contains the expected `build/` and
+`wwwroot/` assets.
 
 ## Code conventions
 

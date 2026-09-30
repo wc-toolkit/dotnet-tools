@@ -16,6 +16,22 @@ export interface PublishDotNetOptions {
   nugetSource?: string;
   dryRun?: boolean;
   emitEnumsForUnions?: boolean;
+  /** Type property to prefer before the parsedType/type fallbacks. */
+  typeField?: string;
+  /** Validate Blazor CEM parity before generating output. Defaults to true. */
+  validateParity?: boolean;
+  /** Attribute/member names considered live form values. */
+  formValueMembers?: string[];
+  /**
+   * Element wrapping named slot content. Defaults to "span" for inline slot content. Use "div"
+   * for block-oriented slots, or null to emit no wrapper.
+   */
+  slotWrapperTag?: string | null;
+  /**
+   * Attribute text written for a boolean attribute whose element default is `true`, so `false`
+   * can be expressed. Defaults to "false"; set to "off" for libraries that spell it that way.
+   */
+  booleanOffValue?: string;
   /** Defaults to .cem-dotnet-publish/<packageId> */
   workDir?: string;
 }
@@ -43,6 +59,11 @@ export async function publishDotNetTypes(
     nugetSource,
     dryRun = true,
     emitEnumsForUnions = true,
+    typeField,
+    validateParity = true,
+    formValueMembers,
+    slotWrapperTag,
+    booleanOffValue,
     workDir = join(".cem-dotnet-publish", packageId),
   } = options;
 
@@ -63,12 +84,19 @@ export async function publishDotNetTypes(
     outputDir: join(workDir, "TagHelpers"),
     namespace,
     emitEnumsForUnions,
+    typeField,
+    booleanOffValue,
   });
 
   // 3. Generate Blazor components into Blazor/
   const blazorFiles = generateBlazorComponents(manifest, {
     outputDir: join(workDir, "Blazor"),
     namespace,
+    typeField,
+    validateParity,
+    formValueMembers,
+    slotWrapperTag,
+    booleanOffValue,
   });
 
   console.log(
@@ -95,6 +123,7 @@ export async function publishDotNetTypes(
 
 export { generateTagHelpers } from "./tag-helpers/generate.js";
 export { generateBlazorComponents } from "./blazor/generate.js";
+export { findBlazorParityIssues } from "./blazor/parity.js";
 export { scaffoldCombinedProject } from "./dotnet/scaffold.js";
 export { packAndPush } from "./dotnet/publish.js";
 export type { CemPackage, CustomElementDecl } from "./shared/cem-types.js";

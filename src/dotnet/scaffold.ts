@@ -43,9 +43,272 @@ export function scaffoldCombinedProject(options: ScaffoldOptions): void {
 
   writeFileSync(join(projectDir, "wwwroot", "customElementInterop.js"), renderInteropJs());
 
-  writeFileSync(join(projectDir, "Blazor", "CustomEventArgs.cs"), renderCustomEventArgs(namespace));
+  writeBlazorSupportFiles(join(projectDir, "Blazor"), namespace);
 
   writeFileSync(join(projectDir, "_ViewImportsExample.txt"), renderViewImportsNote(namespace));
+}
+
+export function writeBlazorSupportFiles(outputDir: string, namespace: string): void {
+  mkdirSync(outputDir, { recursive: true });
+  writeFileSync(join(outputDir, "CustomEventArgs.cs"), renderCustomEventArgs(namespace));
+  writeFileSync(join(outputDir, "GeneratedComponentBase.cs"), renderComponentBase(namespace));
+  writeFileSync(join(outputDir, "GeneratedInputBase.cs"), renderInputBase(namespace));
+}
+
+function renderComponentBase(namespace: string): string {
+  return `using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
+using System.Collections.Generic;
+
+namespace ${namespace};
+
+public abstract class GeneratedComponentBase : ComponentBase, IAsyncDisposable
+{
+    [Inject] protected IJSRuntime JS { get; set; } = default!;
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter] public string? Style { get; set; }
+
+    protected ElementReference Element { get; set; }
+
+    private readonly HashSet<string> _renderedAttributes = new(StringComparer.Ordinal);
+
+    protected object? RenderAttribute(string name, object? value, object? defaultValue = null)
+    {
+        if (value is not null)
+        {
+            _renderedAttributes.Add(name);
+            return value;
+        }
+
+        return _renderedAttributes.Contains(name) ? defaultValue : null;
+    }
+
+    /// <summary>
+    /// Writes a boolean attribute that the element defaults to on, so false has to be stated
+    /// explicitly: omitting the attribute would leave the element's own default in place.
+    /// True is written as bare presence, which every boolean attribute reads as on.
+    /// </summary>
+    /// <param name="name">The attribute name.</param>
+    /// <param name="value">The parameter value, or null to leave the attribute to the element.</param>
+    /// <param name="offValue">Attribute text that the element reads as false.</param>
+    protected object? RenderOnOffAttribute(string name, bool? value, string offValue)
+    {
+        if (value is not null)
+        {
+            _renderedAttributes.Add(name);
+            if (value.Value) return true;
+            return offValue;
+        }
+
+        // Reverting to null after the attribute was written restores the element's default, which is on.
+        return _renderedAttributes.Contains(name) ? true : null;
+    }
+
+    protected string? GetCssClass()
+        => JoinAttribute("class", Class);
+
+    protected string? GetStyle()
+        => JoinAttribute("style", Style);
+
+    private string? JoinAttribute(string name, string? value)
+    {
+        object? additional = null;
+        AdditionalAttributes?.TryGetValue(name, out additional);
+        return string.IsNullOrWhiteSpace(additional?.ToString()) ? value : string.IsNullOrWhiteSpace(value?.ToString())
+            ? additional?.ToString()
+            : $"{additional} {value}";
+    }
+
+    protected virtual IReadOnlyList<string> EventNames => Array.Empty<string>();
+
+    private DotNetObjectReference<GeneratedComponentBase>? _selfReference;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (firstRender && EventNames.Count > 0)
+        {
+            _selfReference = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("customElementInterop.bindEvents", Element, _selfReference, EventNames);
+        }
+    }
+
+    protected Task InvokeVoidMethodAsync(string methodName, object?[] args)
+        => JS.InvokeVoidAsync("customElementInterop.invokeMethod", Element, methodName, args).AsTask();
+
+    protected Task<T> InvokeMethodAsync<T>(string methodName, object?[] args)
+        => JS.InvokeAsync<T>("customElementInterop.invokeMethod", Element, methodName, args).AsTask();
+
+    public Task SetElementValidityAsync(string message)
+        => InvokeVoidMethodAsync("setCustomValidity", new object?[] { message });
+
+    public Task ResetElementValidityAsync()
+        => InvokeVoidMethodAsync("resetValidity", Array.Empty<object?>());
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_selfReference is not null)
+        {
+            await JS.InvokeVoidAsync("customElementInterop.unbindEvents", Element);
+            _selfReference.Dispose();
+        }
+    }
+}
+`;
+}
+
+function renderInputBase(namespace: string): string {
+  return `using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
+using System.Collections.Generic;
+
+namespace ${namespace};
+
+public abstract class GeneratedInputBase<TValue> : InputBase<TValue>, IAsyncDisposable
+{
+    /// <summary>
+    /// Placeholder target for the fallback <see cref="ValueExpression"/>. Blazor only supplies
+    /// that expression for bind-Value, and FieldIdentifier.Create rejects constant expressions,
+    /// so the fallback has to point at a real member.
+    /// </summary>
+    private TValue _valueExpressionAnchor = default!;
+
+    /// <summary>
+    /// InputBase throws unless ValueExpression is set, so a consumer that passes Value or
+    /// ValueChanged without bind-Value would otherwise fail to render. Blazor overwrites this
+    /// with the real expression whenever bind-Value is used.
+    /// </summary>
+    protected GeneratedInputBase()
+    {
+        ValueExpression = () => _valueExpressionAnchor;
+    }
+
+    [Inject] protected IJSRuntime JS { get; set; } = default!;
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter] public string? Style { get; set; }
+
+    protected ElementReference Element { get; set; }
+
+    private readonly HashSet<string> _renderedAttributes = new(StringComparer.Ordinal);
+
+    protected object? RenderAttribute(string name, object? value, object? defaultValue = null)
+    {
+        if (value is not null)
+        {
+            _renderedAttributes.Add(name);
+            return value;
+        }
+
+        return _renderedAttributes.Contains(name) ? defaultValue : null;
+    }
+
+    /// <summary>
+    /// Writes a boolean attribute that the element defaults to on, so false has to be stated
+    /// explicitly: omitting the attribute would leave the element's own default in place.
+    /// True is written as bare presence, which every boolean attribute reads as on.
+    /// </summary>
+    /// <param name="name">The attribute name.</param>
+    /// <param name="value">The parameter value, or null to leave the attribute to the element.</param>
+    /// <param name="offValue">Attribute text that the element reads as false.</param>
+    protected object? RenderOnOffAttribute(string name, bool? value, string offValue)
+    {
+        if (value is not null)
+        {
+            _renderedAttributes.Add(name);
+            if (value.Value) return true;
+            return offValue;
+        }
+
+        // Reverting to null after the attribute was written restores the element's default, which is on.
+        return _renderedAttributes.Contains(name) ? true : null;
+    }
+
+    protected string? GetCssClass()
+        => JoinAttribute("class", Class);
+
+    protected string? GetStyle()
+        => JoinAttribute("style", Style);
+
+    private string? JoinAttribute(string name, string? value)
+    {
+        object? additional = null;
+        AdditionalAttributes?.TryGetValue(name, out additional);
+        return string.IsNullOrWhiteSpace(additional?.ToString()) ? value : string.IsNullOrWhiteSpace(value?.ToString())
+            ? additional?.ToString()
+            : $"{additional} {value}";
+    }
+
+    protected virtual IReadOnlyList<string> EventNames => Array.Empty<string>();
+
+    protected virtual string? LiveValuePropertyName => null;
+
+    private object? _lastLiveValue;
+    private bool _hasLiveValue;
+
+    private DotNetObjectReference<GeneratedInputBase<TValue>>? _selfReference;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (firstRender && EventNames.Count > 0)
+        {
+            _selfReference = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("customElementInterop.bindEvents", Element, _selfReference, EventNames);
+        }
+
+        if (LiveValuePropertyName is not null)
+        {
+            var currentValue = CurrentValue;
+            if (firstRender || !_hasLiveValue)
+            {
+                _lastLiveValue = currentValue;
+                _hasLiveValue = true;
+            }
+            else if (!Equals(_lastLiveValue, currentValue))
+            {
+                _lastLiveValue = currentValue;
+                await JS.InvokeVoidAsync("customElementInterop.syncProperty", Element, LiveValuePropertyName, currentValue);
+            }
+        }
+    }
+
+    protected virtual Task HandleValueChanged(ChangeEventArgs args)
+    {
+        CurrentValueAsString = args.Value?.ToString();
+        return Task.CompletedTask;
+    }
+
+    protected Task InvokeVoidMethodAsync(string methodName, object?[] args)
+        => JS.InvokeVoidAsync("customElementInterop.invokeMethod", Element, methodName, args).AsTask();
+
+    protected Task<T> InvokeMethodAsync<T>(string methodName, object?[] args)
+        => JS.InvokeAsync<T>("customElementInterop.invokeMethod", Element, methodName, args).AsTask();
+
+    public Task SetElementValidityAsync(string message)
+        => InvokeVoidMethodAsync("setCustomValidity", new object?[] { message });
+
+    public Task ResetElementValidityAsync()
+        => InvokeVoidMethodAsync("resetValidity", Array.Empty<object?>());
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_selfReference is not null)
+        {
+            await JS.InvokeVoidAsync("customElementInterop.unbindEvents", Element);
+            _selfReference.Dispose();
+        }
+    }
+}
+`;
 }
 
 function renderCustomEventArgs(namespace: string): string {
@@ -169,6 +432,14 @@ window.customElementInterop = {
     }
 
     this._listeners.delete(element);
+  },
+
+  invokeMethod(element, methodName, args) {
+    return element[methodName](...(args ?? []));
+  },
+
+  syncProperty(element, propertyName, value) {
+    if (element[propertyName] !== value) element[propertyName] = value;
   },
 };
 `;

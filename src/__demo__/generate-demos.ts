@@ -9,7 +9,6 @@ const sourceDemoDirectory = join(demoDirectory, "..", "..", "src", "__demo__");
 const manifest = JSON.parse(
   readFileSync(join(sourceDemoDirectory, "custom-elements.json"), "utf8"),
 ) as CemPackage;
-const demoTags = new Set(["wa-badge", "wa-divider", "wa-input", "wa-progress-bar", "wa-spinner"]);
 const demoManifest: CemPackage = {
   ...manifest,
   modules: manifest.modules.map((module) => ({

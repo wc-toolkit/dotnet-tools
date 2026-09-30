@@ -1,5 +1,6 @@
 @page "/"
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Web
 
 <PageTitle>Web Awesome Blazor Demo</PageTitle>
 
@@ -13,7 +14,7 @@
     <h2>Interactive controls</h2>
     <div class="grid">
         <WaInput Label="Your name" Placeholder="Ada Lovelace" Value="@name" />
-        <WaBadge Variant="brand">Profile ready</WaBadge>
+        <WaBadge Variant="@WaBadgeVariantValue.Brand">Profile ready</WaBadge>
         <WaSpinner />
     </div>
     <div class="actions">
@@ -31,7 +32,7 @@
     private string name = string.Empty;
     private string status = "No event received yet.";
 
-    private Task HandleFocus(CustomEventArgs args)
+    private Task HandleFocus(FocusEventArgs args)
     {
         status = $"Received {args.Type} from Web Awesome.";
         return Task.CompletedTask;

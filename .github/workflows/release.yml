@@ -28,6 +28,11 @@ jobs:
           node-version: 24
           cache: pnpm
 
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.x
+
       - name: Configure npm trusted publishing
         run: npm config set registry https://registry.npmjs.org/
         env:
@@ -35,6 +40,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Verify generated projects
+        run: pnpm test:generated
 
       - name: Create release or publish packages
         uses: changesets/action@v1

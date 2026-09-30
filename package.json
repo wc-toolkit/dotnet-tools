@@ -32,6 +32,7 @@
     "format:check": "oxfmt src --check",
     "lint": "oxlint src",
     "test": "vitest run",
+    "test:generated": "pnpm build && node dist/__demo__/generate-demos.js && dotnet build src/__demo__/blazor/WebAwesome.BlazorDemo.csproj && dotnet build src/__demo__/razor-pages/WebAwesome.RazorPagesDemo.csproj",
     "check": "pnpm format:check && pnpm lint && pnpm build",
     "changeset": "changeset",
     "version": "changeset version",
@@ -45,7 +46,7 @@
     "@types/node": "^20.14.0",
     "oxfmt": "^0.70.0",
     "oxlint": "^1.85.0",
-    "typescript": "^5.5.0",
+    "typescript": "^7.0.2",
     "vitest": "^5.0.2"
   }
 }

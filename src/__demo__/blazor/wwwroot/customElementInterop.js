@@ -35,4 +35,12 @@ window.customElementInterop = {
 
     this._listeners.delete(element);
   },
+
+  invokeMethod(element, methodName, args) {
+    return element[methodName](...(args ?? []));
+  },
+
+  syncProperty(element, propertyName, value) {
+    if (element[propertyName] !== value) element[propertyName] = value;
+  },
 };
