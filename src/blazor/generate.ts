@@ -119,9 +119,20 @@ function renderRazorMarkup(
         : renderAttributeBinding(attribute, booleanOffValue),
     )
     .join(" ");
+  // A form control has to read its value back out of the element. Binding the event straight to
+  // the user callback would skip HandleValueChanged, which is what updates the bound value, so the
+  // generated override is wired in instead and forwards to the callback itself.
+  const formBindingEvent = model.formValue
+    ? (model.events.find((event) => event.name === "change") ??
+      model.events.find((event) => event.name === "input"))
+    : undefined;
   const eventBindings = model.events
     .filter((event) => !event.useInterop)
-    .map((event) => ` @on${event.name}="${event.propertyName}"`)
+    .map((event) =>
+      event === formBindingEvent
+        ? ` @on${event.name}="HandleValueChanged"`
+        : ` @on${event.name}="${event.propertyName}"`,
+    )
     .join("");
   const ssrBindings = model.ssrSlotHints
     .map((slot) => ` with-${slot}="@With${toPascalCase(slot)}"`)
@@ -152,6 +163,9 @@ function renderAttributeBinding(
 ): string {
   if (isOnOffBoolean(attribute)) {
     return `${attribute.name}="@RenderOnOffAttribute("${attribute.name}", ${attribute.propertyName}, "${booleanOffValue}")"`;
+  }
+  if (attribute.mappedType.csType.startsWith("IReadOnlyList<")) {
+    return `${attribute.name}="@RenderJsonAttribute("${attribute.name}", ${attribute.propertyName})"`;
   }
   const value =
     attribute.typeName && attribute.typeKind === "enum"
@@ -233,9 +247,14 @@ function renderCodeBehind(model: BlazorComponentModel, namespace: string): strin
   const baseType = formValueType
     ? `GeneratedInputBase<${formValueType}>`
     : "GeneratedComponentBase";
-  const formChangeEvent = formValue ? events.find((event) => event.name === "change") : undefined;
+  const formBindingCallback = formValue
+    ? (
+        events.find((event) => event.name === "change") ??
+        events.find((event) => event.name === "input")
+      )?.propertyName
+    : undefined;
   const formImplementation = formValueType
-    ? renderFormImplementation(formValueType, formChangeEvent?.propertyName)
+    ? renderFormImplementation(formValueType, formBindingCallback)
     : "";
   const methodsCode = methods.map(renderMethod).join("\n\n");
   const liveProperty = model.liveValueProperty

@@ -36,6 +36,7 @@ const manifest: CemPackage = {
             { name: "size", type: { text: '"small" | "large"' }, description: "Picker size" },
             { name: "spellcheck", type: { text: "boolean" }, default: "true" },
             { name: "rotate", type: { text: "number" } },
+            { name: "labels", type: { text: "string[]" } },
           ],
         },
         { kind: "class", name: "Internal", customElement: false, tagName: "internal-element" },
@@ -110,5 +111,18 @@ describe("generateTagHelpers", () => {
     expect(source).toContain(
       'output.Attributes.SetAttribute("rotate", Rotate.Value.ToString(CultureInfo.InvariantCulture));',
     );
+  });
+
+  it("serializes collection attributes as JSON rather than the CLR type name", () => {
+    const outputDir = createOutputDirectory();
+    const generated = generateTagHelpers(manifest, { outputDir, namespace: "Acme.Components" });
+    const source = readFileSync(generated[0].filePath, "utf8");
+
+    // List<T>.ToString() yields "IReadOnlyList`1[System.String]", which is not a usable value.
+    expect(source).toContain("public IReadOnlyList<string?>? Labels { get; set; }");
+    expect(source).toContain(
+      'output.Attributes.SetAttribute("labels", JsonSerializer.Serialize(Labels));',
+    );
+    expect(source).not.toContain("Labels.ToString()");
   });
 });

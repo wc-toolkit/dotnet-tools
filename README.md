@@ -195,6 +195,15 @@ another name. Components inferred as inputs derive from `GeneratedInputBase<TVal
 `@bind-Value` and `EditContext` validation, and expose `SetElementValidityAsync` and
 `ResetElementValidityAsync` on the generated base classes.
 
+A form control's value event is routed through `HandleValueChanged` rather than bound straight to
+your callback, so the element's value is read back into the bound value before your callback runs.
+`change` is preferred when the element declares both; an element that only declares `input` binds
+through `input` instead. The generated `HandleValueChanged` override forwards to your `OnChange` or
+`OnInput` callback after updating the value.
+
+Collection-valued attributes are emitted as JSON. A collection's `ToString` yields the CLR type
+name rather than its contents, so serializing is what makes a `string[]` attribute usable.
+
 ### Member visibility
 
 Members marked `private` or `protected` in the manifest are treated as implementation details and

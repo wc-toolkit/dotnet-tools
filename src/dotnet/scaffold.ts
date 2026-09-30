@@ -59,6 +59,7 @@ function renderComponentBase(namespace: string): string {
   return `using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using System.Collections.Generic;
+using System.Text.Json;
 
 namespace ${namespace};
 
@@ -107,6 +108,24 @@ public abstract class GeneratedComponentBase : ComponentBase, IAsyncDisposable
 
         // Reverting to null after the attribute was written restores the element's default, which is on.
         return _renderedAttributes.Contains(name) ? true : null;
+    }
+
+    /// <summary>
+    /// Writes a collection-valued attribute as JSON. A collection's ToString yields the CLR type
+    /// name rather than its contents, so it is serialized instead.
+    /// </summary>
+    /// <param name="name">The attribute name.</param>
+    /// <param name="value">The collection, or null to leave the attribute to the element.</param>
+    /// <param name="defaultValue">Attribute text to restore once the attribute has been written.</param>
+    protected string? RenderJsonAttribute(string name, object? value, string? defaultValue = null)
+    {
+        if (value is not null)
+        {
+            _renderedAttributes.Add(name);
+            return JsonSerializer.Serialize(value);
+        }
+
+        return _renderedAttributes.Contains(name) ? defaultValue : null;
     }
 
     protected string? GetCssClass()
@@ -168,6 +187,7 @@ using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 using System.Collections.Generic;
+using System.Text.Json;
 
 namespace ${namespace};
 
@@ -230,6 +250,24 @@ public abstract class GeneratedInputBase<TValue> : InputBase<TValue>, IAsyncDisp
 
         // Reverting to null after the attribute was written restores the element's default, which is on.
         return _renderedAttributes.Contains(name) ? true : null;
+    }
+
+    /// <summary>
+    /// Writes a collection-valued attribute as JSON. A collection's ToString yields the CLR type
+    /// name rather than its contents, so it is serialized instead.
+    /// </summary>
+    /// <param name="name">The attribute name.</param>
+    /// <param name="value">The collection, or null to leave the attribute to the element.</param>
+    /// <param name="defaultValue">Attribute text to restore once the attribute has been written.</param>
+    protected string? RenderJsonAttribute(string name, object? value, string? defaultValue = null)
+    {
+        if (value is not null)
+        {
+            _renderedAttributes.Add(name);
+            return JsonSerializer.Serialize(value);
+        }
+
+        return _renderedAttributes.Contains(name) ? defaultValue : null;
     }
 
     protected string? GetCssClass()

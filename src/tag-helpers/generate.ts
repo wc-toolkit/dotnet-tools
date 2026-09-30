@@ -114,8 +114,10 @@ function renderTagHelper(
         `        if (!string.IsNullOrEmpty(${propName}))\n            output.Attributes.SetAttribute("${attr.name}", ${propName});`,
       );
     } else if (csType.startsWith("IReadOnlyList<")) {
+      // Collections have no useful ToString, which would write the type name into the markup.
       assignments.push(
-        `        if (${propName} is not null)\n            output.Attributes.SetAttribute("${attr.name}", ${propName}.ToString());`,
+        `        if (${propName} is not null)\n` +
+          `            output.Attributes.SetAttribute("${attr.name}", JsonSerializer.Serialize(${propName}));`,
       );
     } else {
       assignments.push(

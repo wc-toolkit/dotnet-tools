@@ -293,6 +293,109 @@ describe("generateBlazorComponents", () => {
     expect(markup).toContain('spellcheck="@RenderOnOffAttribute("spellcheck", Spellcheck, "off")"');
   });
 
+  it("wires the value round-trip through HandleValueChanged, not straight to the callback", () => {
+    const outputDir = createOutputDirectory();
+    generateBlazorComponents(
+      {
+        schemaVersion: "1.0.0",
+        modules: [
+          {
+            path: "components.ts",
+            declarations: [
+              {
+                kind: "class",
+                name: "FormControl",
+                customElement: true,
+                tagName: "acme-form-control",
+                attributes: [{ name: "value", type: { text: "string" } }],
+                events: [{ name: "change" }, { name: "input" }],
+                members: [{ kind: "field", name: "formAssociated", type: { text: "boolean" } }],
+              },
+            ],
+          },
+        ],
+      },
+      { outputDir, namespace: "Acme.Components" },
+    );
+
+    const markup = readFileSync(join(outputDir, "AcmeFormControl.razor"), "utf8");
+    const codeBehind = readFileSync(join(outputDir, "AcmeFormControl.razor.cs"), "utf8");
+    const inputBase = readFileSync(join(outputDir, "GeneratedInputBase.cs"), "utf8");
+
+    // Every link in the chain has to hold, or the bound value never updates from the element.
+    // 1. The event must reach HandleValueChanged. Binding it straight to OnChange skips the read-back.
+    expect(markup).toContain('@onchange="HandleValueChanged"');
+    expect(markup).not.toContain('@onchange="OnChange"');
+    // 2. The override must update the value before forwarding to the user's callback.
+    expect(codeBehind).toContain(
+      "protected override async Task HandleValueChanged(ChangeEventArgs args)\n    {\n        await base.HandleValueChanged(args);\n        await OnChange.InvokeAsync(args);",
+    );
+    // 3. The base must be what assigns the bound value.
+    expect(inputBase).toContain("CurrentValueAsString = args.Value?.ToString();");
+    // 4. An unrelated event keeps its own callback.
+    expect(markup).toContain('@oninput="OnInput"');
+  });
+
+  it("binds the value on input when the element has no change event", () => {
+    const outputDir = createOutputDirectory();
+    generateBlazorComponents(
+      {
+        schemaVersion: "1.0.0",
+        modules: [
+          {
+            path: "components.ts",
+            declarations: [
+              {
+                kind: "class",
+                name: "Typing",
+                customElement: true,
+                tagName: "acme-typing",
+                attributes: [{ name: "value", type: { text: "string" } }],
+                events: [{ name: "input" }],
+                members: [{ kind: "field", name: "formAssociated", type: { text: "boolean" } }],
+              },
+            ],
+          },
+        ],
+      },
+      { outputDir, namespace: "Acme.Components" },
+    );
+
+    const markup = readFileSync(join(outputDir, "AcmeTyping.razor"), "utf8");
+    const codeBehind = readFileSync(join(outputDir, "AcmeTyping.razor.cs"), "utf8");
+
+    expect(markup).toContain('@oninput="HandleValueChanged"');
+    expect(codeBehind).toContain("await OnInput.InvokeAsync(args);");
+  });
+
+  it("leaves non-form components bound directly to their callbacks", () => {
+    const outputDir = createOutputDirectory();
+    generateBlazorComponents(
+      {
+        schemaVersion: "1.0.0",
+        modules: [
+          {
+            path: "components.ts",
+            declarations: [
+              {
+                kind: "class",
+                name: "Button",
+                customElement: true,
+                tagName: "acme-button",
+                events: [{ name: "change" }],
+              },
+            ],
+          },
+        ],
+      },
+      { outputDir, namespace: "Acme.Components" },
+    );
+
+    const markup = readFileSync(join(outputDir, "AcmeButton.razor"), "utf8");
+    expect(markup).toContain('@onchange="OnChange"');
+    expect(markup).not.toContain("HandleValueChanged");
+  });
+
   it("generates form binding and typed methods from CEM members", () => {
     const outputDir = createOutputDirectory();
     generateBlazorComponents(
@@ -335,7 +438,7 @@ describe("generateBlazorComponents", () => {
     const codeBehind = readFileSync(join(outputDir, "AcmeFormControl.razor.cs"), "utf8");
 
     expect(markup).toContain('value="@CurrentValueAsString"');
-    expect(markup).toContain('@onchange="OnChange"');
+    expect(markup).toContain('@onchange="HandleValueChanged"');
     expect(codeBehind).toContain(
       "public partial class AcmeFormControl : GeneratedInputBase<string?>",
     );
