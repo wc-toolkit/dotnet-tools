@@ -31,6 +31,34 @@ export function isOnOffBoolean(attribute: BlazorAttributeModel): boolean {
   return attribute.mappedType.isBool && attribute.booleanMode === "onOff";
 }
 
+export interface FormEventResolution {
+  changeEvent?: BlazorEventModel;
+  inputEvent?: BlazorEventModel;
+  /** The event the bound value is read back from. */
+  bindingEvent?: BlazorEventModel;
+  /** True when the element offers both events, so the binding source can be chosen at runtime. */
+  supportsImmediate: boolean;
+}
+
+/**
+ * Resolves which events carry a form control's value. Shared by the Razor markup and the
+ * code-behind so the two cannot disagree about which handler is wired up.
+ */
+export function resolveFormEvents(model: BlazorComponentModel): FormEventResolution {
+  if (!model.formValue) {
+    return { supportsImmediate: false };
+  }
+  const changeEvent = model.events.find((event) => event.name === "change");
+  const inputEvent = model.events.find((event) => event.name === "input");
+  return {
+    changeEvent,
+    inputEvent,
+    // change is preferred because it commits on blur; input is the only option otherwise.
+    bindingEvent: changeEvent ?? inputEvent,
+    supportsImmediate: Boolean(changeEvent && inputEvent),
+  };
+}
+
 export interface BlazorEventModel {
   name: string;
   propertyName: string;

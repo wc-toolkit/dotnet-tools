@@ -104,7 +104,8 @@ Run TypeScript in watch mode while developing:
 pnpm dev
 ```
 
-Build both generated demo projects, including the generated Blazor and Razor Pages output:
+Build both generated demo projects, including the generated Blazor and Razor Pages output, then run
+the rendered-component tests against them:
 
 ```sh
 pnpm test:generated
@@ -120,9 +121,21 @@ pnpm test
 output in `dist/` is not collected a second time. Run `pnpm check` and `pnpm test` for every
 change, plus `pnpm test:generated` for changes to generated C# or Razor.
 
-The tests assert on generated source text, so they cannot prove runtime behavior. Changes to the
-shared generated base classes, event interop, or input binding should additionally be exercised by
-running a demo app, for example `pnpm demo:blazor`, and loading the page.
+## Testing generated components
+
+The Vitest tests assert on generated source text. That cannot tell whether a generated handler is
+reachable from the markup, which is why a form control whose value event was bound straight to the
+caller's callback passed every source-level assertion while `@bind-Value` silently did nothing.
+
+`test/Blazor` covers that gap with bUnit. It renders the components produced by the last
+`test:generated` run and fires real events, so it exercises the markup-to-code-behind wiring. It is
+part of `test:generated` and needs the .NET 8 SDK.
+
+When you change event routing, form binding, the shared generated base classes, or attribute
+rendering, add a case there. Assert the behavior through the rendered element rather than the
+component's properties where possible. Extending that suite is the right answer to "how do I know
+this actually works?"; running a demo app by hand remains useful for anything a browser does that
+bUnit does not, such as a real custom element upgrading and dispatching events.
 
 ## Making a change
 

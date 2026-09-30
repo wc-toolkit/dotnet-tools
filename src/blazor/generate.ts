@@ -4,6 +4,7 @@ import type { CemPackage } from "../shared/cem-types.js";
 import {
   createBlazorComponentModels,
   isOnOffBoolean,
+  resolveFormEvents,
   type BlazorComponentModel,
   type BlazorMethodModel,
   type BlazorTypeRegistry,
@@ -122,17 +123,20 @@ function renderRazorMarkup(
   // A form control has to read its value back out of the element. Binding the event straight to
   // the user callback would skip HandleValueChanged, which is what updates the bound value, so the
   // generated override is wired in instead and forwards to the callback itself.
-  const formBindingEvent = model.formValue
-    ? (model.events.find((event) => event.name === "change") ??
-      model.events.find((event) => event.name === "input"))
-    : undefined;
+  const formEvents = resolveFormEvents(model);
   const eventBindings = model.events
     .filter((event) => !event.useInterop)
-    .map((event) =>
-      event === formBindingEvent
-        ? ` @on${event.name}="HandleValueChanged"`
-        : ` @on${event.name}="${event.propertyName}"`,
-    )
+    .map((event) => {
+      // With both events available, input carries the value only when Immediate is set; otherwise
+      // change does, and input still reaches its own callback.
+      if (formEvents.supportsImmediate && event === formEvents.inputEvent) {
+        return ` @oninput="HandleInputEvent"`;
+      }
+      if (event === formEvents.bindingEvent) {
+        return ` @on${event.name}="HandleValueChanged"`;
+      }
+      return ` @on${event.name}="${event.propertyName}"`;
+    })
     .join("");
   const ssrBindings = model.ssrSlotHints
     .map((slot) => ` with-${slot}="@With${toPascalCase(slot)}"`)
@@ -247,14 +251,18 @@ function renderCodeBehind(model: BlazorComponentModel, namespace: string): strin
   const baseType = formValueType
     ? `GeneratedInputBase<${formValueType}>`
     : "GeneratedComponentBase";
-  const formBindingCallback = formValue
-    ? (
-        events.find((event) => event.name === "change") ??
-        events.find((event) => event.name === "input")
-      )?.propertyName
-    : undefined;
+  const codeFormEvents = resolveFormEvents(model);
   const formImplementation = formValueType
-    ? renderFormImplementation(formValueType, formBindingCallback)
+    ? renderFormImplementation(
+        formValueType,
+        codeFormEvents.bindingEvent?.propertyName,
+        codeFormEvents.supportsImmediate
+          ? {
+              change: codeFormEvents.changeEvent!.propertyName,
+              input: codeFormEvents.inputEvent!.propertyName,
+            }
+          : undefined,
+      )
     : "";
   const methodsCode = methods.map(renderMethod).join("\n\n");
   const liveProperty = model.liveValueProperty
@@ -316,16 +324,37 @@ function toEnumMemberName(value: string): string {
   return /^[A-Za-z_]/.test(normalized) ? normalized : `Value${normalized}`;
 }
 
-function renderFormImplementation(type: string, changeCallback?: string): string {
-  const changeHandler = changeCallback
-    ? `    protected override async Task HandleValueChanged(ChangeEventArgs args)
+function renderFormImplementation(
+  type: string,
+  bindingCallback?: string,
+  immediate?: { change: string; input: string },
+): string {
+  // With both events available the caller chooses the binding source at runtime. Only one of the
+  // two handlers reads the value back; the other just forwards to its own callback, and the
+  // caller's callback always runs after the value has been updated.
+  const changeHandler = !bindingCallback
+    ? ""
+    : immediate
+      ? `    protected override async Task HandleValueChanged(ChangeEventArgs args)
     {
-        await base.HandleValueChanged(args);
-        await ${changeCallback}.InvokeAsync(args);
+        if (!Immediate) await base.HandleValueChanged(args);
+        await ${immediate.change}.InvokeAsync(args);
+    }
+
+    protected async Task HandleInputEvent(ChangeEventArgs args)
+    {
+        if (Immediate) await base.HandleValueChanged(args);
+        await ${immediate.input}.InvokeAsync(args);
     }
 
 `
-    : "";
+      : `    protected override async Task HandleValueChanged(ChangeEventArgs args)
+    {
+        await base.HandleValueChanged(args);
+        await ${bindingCallback}.InvokeAsync(args);
+    }
+
+`;
   if (type === "string?") {
     return `${changeHandler}    protected override bool TryParseValueFromString(string? value, out ${type} result, [NotNullWhen(false)] out string? validationErrorMessage)
     {

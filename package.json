@@ -32,7 +32,7 @@
     "format:check": "oxfmt src --check",
     "lint": "oxlint src",
     "test": "vitest run",
-    "test:generated": "pnpm build && node dist/__demo__/generate-demos.js && dotnet build src/__demo__/blazor/WebAwesome.BlazorDemo.csproj && dotnet build src/__demo__/razor-pages/WebAwesome.RazorPagesDemo.csproj",
+    "test:generated": "pnpm build && node dist/__demo__/generate-demos.js && dotnet build src/__demo__/blazor/WebAwesome.BlazorDemo.csproj && dotnet build src/__demo__/razor-pages/WebAwesome.RazorPagesDemo.csproj && dotnet test test/Blazor",
     "check": "pnpm format:check && pnpm lint && pnpm build",
     "changeset": "changeset",
     "version": "changeset version",

@@ -201,6 +201,19 @@ your callback, so the element's value is read back into the bound value before y
 through `input` instead. The generated `HandleValueChanged` override forwards to your `OnChange` or
 `OnInput` callback after updating the value.
 
+Controls that declare both events also expose `Immediate`. It is `false` by default, which binds on
+`change` and commits when the element fires it, typically on blur. Set it to `true` to bind on every
+keystroke instead, so the model stays current while the user types:
+
+```razor
+<wa-input @bind-Value="_query" Immediate />
+```
+
+Your `OnInput` callback still runs either way, and always after the value has been updated, so it is
+not skipped just because the value came from the same event. `Immediate` is only generated when the
+element declares both events; with only `input` there is no other event to choose between, so the
+value is always read from `input`.
+
 Collection-valued attributes are emitted as JSON. A collection's `ToString` yields the CLR type
 name rather than its contents, so serializing is what makes a `string[]` attribute usable.
 

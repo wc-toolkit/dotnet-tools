@@ -216,6 +216,13 @@ public abstract class GeneratedInputBase<TValue> : InputBase<TValue>, IAsyncDisp
 
     [Parameter] public string? Style { get; set; }
 
+    /// <summary>
+    /// Binds the value on every keystroke (the input event) instead of only when the change is
+    /// committed (the change event, typically on blur), so the model stays current while the user
+    /// types. Generated components only expose it when the element declares both events.
+    /// </summary>
+    [Parameter] public bool Immediate { get; set; }
+
     protected ElementReference Element { get; set; }
 
     private readonly HashSet<string> _renderedAttributes = new(StringComparer.Ordinal);

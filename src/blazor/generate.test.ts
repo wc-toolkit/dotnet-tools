@@ -326,14 +326,89 @@ describe("generateBlazorComponents", () => {
     // 1. The event must reach HandleValueChanged. Binding it straight to OnChange skips the read-back.
     expect(markup).toContain('@onchange="HandleValueChanged"');
     expect(markup).not.toContain('@onchange="OnChange"');
-    // 2. The override must update the value before forwarding to the user's callback.
-    expect(codeBehind).toContain(
-      "protected override async Task HandleValueChanged(ChangeEventArgs args)\n    {\n        await base.HandleValueChanged(args);\n        await OnChange.InvokeAsync(args);",
-    );
+    // 2. The override must read the value back before forwarding to the user's callback. This
+    // element declares both events, so the read is gated on Immediate.
+    expect(codeBehind).toContain("if (!Immediate) await base.HandleValueChanged(args);");
+    expect(codeBehind).toContain("await OnChange.InvokeAsync(args);");
     // 3. The base must be what assigns the bound value.
     expect(inputBase).toContain("CurrentValueAsString = args.Value?.ToString();");
-    // 4. An unrelated event keeps its own callback.
-    expect(markup).toContain('@oninput="OnInput"');
+  });
+
+  it("lets Immediate choose which event carries the value", () => {
+    const outputDir = createOutputDirectory();
+    generateBlazorComponents(
+      {
+        schemaVersion: "1.0.0",
+        modules: [
+          {
+            path: "components.ts",
+            declarations: [
+              {
+                kind: "class",
+                name: "FormControl",
+                customElement: true,
+                tagName: "acme-form-control",
+                attributes: [{ name: "value", type: { text: "string" } }],
+                events: [{ name: "change" }, { name: "input" }],
+                members: [{ kind: "field", name: "formAssociated", type: { text: "boolean" } }],
+              },
+            ],
+          },
+        ],
+      },
+      { outputDir, namespace: "Acme.Components" },
+    );
+
+    const markup = readFileSync(join(outputDir, "AcmeFormControl.razor"), "utf8");
+    const codeBehind = readFileSync(join(outputDir, "AcmeFormControl.razor.cs"), "utf8");
+    const inputBase = readFileSync(join(outputDir, "GeneratedInputBase.cs"), "utf8");
+
+    expect(inputBase).toContain("[Parameter] public bool Immediate { get; set; }");
+    // Both events are routed through a handler that consults Immediate, so exactly one of them
+    // reads the value back. Whichever it is, the caller's callback still runs.
+    expect(markup).toContain('@onchange="HandleValueChanged"');
+    expect(markup).toContain('@oninput="HandleInputEvent"');
+    expect(codeBehind).toContain("if (!Immediate) await base.HandleValueChanged(args);");
+    expect(codeBehind).toContain("if (Immediate) await base.HandleValueChanged(args);");
+    expect(codeBehind).toContain("await OnChange.InvokeAsync(args);");
+    expect(codeBehind).toContain("await OnInput.InvokeAsync(args);");
+  });
+
+  it("omits Immediate for an element that declares only input", () => {
+    const outputDir = createOutputDirectory();
+    generateBlazorComponents(
+      {
+        schemaVersion: "1.0.0",
+        modules: [
+          {
+            path: "components.ts",
+            declarations: [
+              {
+                kind: "class",
+                name: "Typing",
+                customElement: true,
+                tagName: "acme-typing",
+                attributes: [{ name: "value", type: { text: "string" } }],
+                events: [{ name: "input" }],
+                members: [{ kind: "field", name: "formAssociated", type: { text: "boolean" } }],
+              },
+            ],
+          },
+        ],
+      },
+      { outputDir, namespace: "Acme.Components" },
+    );
+
+    const markup = readFileSync(join(outputDir, "AcmeTyping.razor"), "utf8");
+    const codeBehind = readFileSync(join(outputDir, "AcmeTyping.razor.cs"), "utf8");
+
+    // input is the only event that can carry the value, so there is no choice to expose.
+    expect(markup).toContain('@oninput="HandleValueChanged"');
+    expect(markup).not.toContain("HandleInputEvent");
+    expect(codeBehind).not.toContain("Immediate");
+    expect(codeBehind).toContain(
+      "await base.HandleValueChanged(args);\n        await OnInput.InvokeAsync(args);",
+    );
   });
 
   it("binds the value on input when the element has no change event", () => {
