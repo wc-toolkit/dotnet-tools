@@ -171,9 +171,23 @@ public abstract class GeneratedComponentBase : ComponentBase, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (_selfReference is not null)
+        if (_selfReference is null)
+        {
+            return;
+        }
+
+        try
         {
             await JS.InvokeVoidAsync("customElementInterop.unbindEvents", Element);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit disconnected before this component was disposed, so the browser and its
+            // listeners are already gone. There is nothing left to unbind, and letting the call
+            // throw here would surface as an unhandled circuit error.
+        }
+        finally
+        {
             _selfReference.Dispose();
         }
     }
@@ -346,9 +360,23 @@ public abstract class GeneratedInputBase<TValue> : InputBase<TValue>, IAsyncDisp
 
     public async ValueTask DisposeAsync()
     {
-        if (_selfReference is not null)
+        if (_selfReference is null)
+        {
+            return;
+        }
+
+        try
         {
             await JS.InvokeVoidAsync("customElementInterop.unbindEvents", Element);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit disconnected before this component was disposed, so the browser and its
+            // listeners are already gone. There is nothing left to unbind, and letting the call
+            // throw here would surface as an unhandled circuit error.
+        }
+        finally
+        {
             _selfReference.Dispose();
         }
     }

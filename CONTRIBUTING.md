@@ -31,13 +31,13 @@ version recorded by the lockfile for local development.
 ```text
 src/
   index.ts                  Public API and end-to-end generation workflow
-  plugin.ts                 onManifestGenerated integration hook
+  plugin.ts                 CEM generator and analyzer integration hooks
   blazor/generate.ts        .razor and code-behind generation
   blazor/model.ts           Normalized CEM to Blazor component model
   blazor/parity.ts          CEM API coverage validation
   tag-helpers/generate.ts   C# Tag Helper generation
   dotnet/scaffold.ts        Generated Razor Class Library files
-  dotnet/publish.ts         dotnet restore/build/pack/push orchestration
+  dotnet/pack.ts            dotnet restore/build/pack orchestration
   shared/                   CEM types, naming, and type mapping
   __demo__/                 Generated-output demos and fixtures
 dist/                       TypeScript build output, not hand-edited
@@ -151,13 +151,14 @@ bUnit does not, such as a real custom element upgrading and dispatching events.
 
 ## Working with generated output
 
-The main workflow is `publishDotNetTypes`. It removes and recreates its `workDir`, then:
+The main workflow is `packDotNetTypes`. It removes and recreates its `outdir`, then:
 
 1. Scaffolds a Razor Class Library project.
 2. Generates Tag Helpers under `TagHelpers/`.
 3. Generates Blazor components under `Blazor/`.
 4. Runs `dotnet restore`, `dotnet build -c Release`, and `dotnet pack`.
-5. Pushes the package only when `dryRun` is explicitly false.
+5. Leaves the resulting `.nupkg` in the generated project's `out/` directory. Publishing is
+   controlled by the component library maintainer's release process.
 
 When testing changes to generated C# or Razor, use a small CEM fixture containing at least:
 
@@ -212,7 +213,7 @@ private package-feed URLs before posting logs.
 
 ## Releasing and publishing
 
-Publishing is not part of the normal contribution workflow. Never commit a NuGet API key.
-For a release, confirm the version and generated output, perform a dry run first, then set
-`NUGET_API_KEY` in the protected release environment and use `dryRun: false` with the intended
-`nugetSource`.
+This project creates NuGet packages but does not publish them. Component library maintainers
+should publish the generated `.nupkg` from their own CI or release workflow, where they control
+the version, approvals, credentials, and package source. Never add NuGet credentials to this
+repository or to a generator config.

@@ -24,12 +24,12 @@ rmSync(join(sourceDemoDirectory, "blazor", "Components", "Generated"), {
 });
 
 generateTagHelpers(demoManifest, {
-  outputDir: join(sourceDemoDirectory, "razor-pages", "Generated", "TagHelpers"),
+  outdir: join(sourceDemoDirectory, "razor-pages", "Generated", "TagHelpers"),
   namespace: "WebAwesome.RazorPagesDemo",
 });
 
 generateBlazorComponents(demoManifest, {
-  outputDir: join(sourceDemoDirectory, "blazor", "Components", "Generated"),
+  outdir: join(sourceDemoDirectory, "blazor", "Components", "Generated"),
   namespace: "WebAwesome.BlazorDemo.Components.Generated",
 });
 

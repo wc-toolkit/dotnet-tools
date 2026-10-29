@@ -1,6 +1,7 @@
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 using WebAwesome.BlazorDemo.Components.Generated;
 using Xunit;
 
@@ -171,5 +172,43 @@ public class GeneratedInputTests : TestContext
         component.SetParametersAndRender(parameters => parameters.Add(p => p.Spellcheck, (bool?)null));
 
         Assert.Equal("", component.Find("wa-input").GetAttribute("spellcheck"));
+    }
+}
+
+public class GeneratedDisposeTests : TestContext
+{
+    public GeneratedDisposeTests()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+    }
+
+    [Fact]
+    public async Task DisposingAnInputUnbindsItsEvents()
+    {
+        JSInterop.SetupVoid("customElementInterop.unbindEvents", _ => true);
+
+        var component = RenderComponent<WaInput>();
+        await component.Instance.DisposeAsync();
+
+        Assert.Contains(
+            JSInterop.Invocations,
+            invocation => invocation.Identifier == "customElementInterop.unbindEvents"
+        );
+    }
+
+    [Fact]
+    public async Task DisposingAfterTheCircuitDisconnectsDoesNotThrow()
+    {
+        // Closing the tab or dropping the network disposes the circuit before the components in it,
+        // so the unbind call reaches a runtime that can no longer talk to the browser. That used to
+        // surface as an unhandled CircuitHost error on every disconnect.
+        JSInterop
+            .SetupVoid("customElementInterop.unbindEvents", _ => true)
+            .SetVoidResult()
+            .SetException(new JSDisconnectedException("The circuit has disconnected."));
+
+        var component = RenderComponent<WaInput>();
+
+        await component.Instance.DisposeAsync();
     }
 }

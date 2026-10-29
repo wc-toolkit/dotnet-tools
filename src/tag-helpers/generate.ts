@@ -11,12 +11,21 @@ import {
 } from "../shared/type-mapping.js";
 
 export interface TagHelperGenOptions {
-  outputDir: string;
+  outdir: string;
   namespace: string;
   /** Emit a real C# enum for string-literal union attributes instead of falling back to string */
   emitEnumsForUnions?: boolean;
-  /** Type property to prefer before the parsedType/type fallbacks. */
-  typeField?: string;
+  /**
+   * CEM property to read type information from. Defaults to `parsedType`, falling back to
+   * `parsedType` and then `type` when the configured property is absent.
+   */
+  typeSrc?: string;
+  /** Component names to exclude from generation. */
+  exclude?: string[];
+  /** Skips generation and returns no files. */
+  skip?: boolean;
+  /** Logs each generated file. */
+  debug?: boolean;
   /**
    * Attribute text written for a boolean attribute whose element default is `true`, so that
    * `false` can be expressed. Defaults to `"false"`; set to `"off"` for libraries that use it.
@@ -33,18 +42,34 @@ export function generateTagHelpers(
   manifest: CemPackage,
   options: TagHelperGenOptions,
 ): GeneratedFile[] {
-  const { outputDir, namespace, emitEnumsForUnions = true, typeField, booleanOffValue } = options;
+  const {
+    outdir,
+    namespace,
+    emitEnumsForUnions = true,
+    typeSrc = "parsedType",
+    exclude = [],
+    skip = false,
+    debug = false,
+    booleanOffValue,
+  } = options;
+
+  if (skip) {
+    if (debug) console.log("[dotnet-tools] Tag Helper generation skipped.");
+    return [];
+  }
+
   const offValue = booleanOffValue ?? DEFAULT_BOOLEAN_OFF_VALUE;
-  mkdirSync(outputDir, { recursive: true });
+  mkdirSync(outdir, { recursive: true });
 
   const generated: GeneratedFile[] = [];
 
-  for (const decl of getCustomElementDeclarations(manifest)) {
+  for (const decl of getCustomElementDeclarations(manifest, exclude)) {
     const className = toPascalCase(decl.tagName) + "TagHelper";
-    const code = renderTagHelper(decl, namespace, emitEnumsForUnions, typeField, offValue);
-    const filePath = join(outputDir, `${className}.cs`);
+    const code = renderTagHelper(decl, namespace, emitEnumsForUnions, typeSrc, offValue);
+    const filePath = join(outdir, `${className}.cs`);
     writeFileSync(filePath, code, "utf-8");
     generated.push({ fileName: `${className}.cs`, filePath });
+    if (debug) console.log(`[dotnet-tools] Tag Helper ${className}: ${filePath}`);
   }
 
   return generated;
@@ -54,7 +79,7 @@ function renderTagHelper(
   decl: CustomElementDecl,
   namespace: string,
   emitEnums: boolean,
-  typeField: string | undefined,
+  typeSrc: string,
   booleanOffValue: string,
 ): string {
   const tagName = decl.tagName;
@@ -67,7 +92,7 @@ function renderTagHelper(
 
   for (const attr of attrs) {
     const propName = toPascalCase(attr.name);
-    const mapped = mapCemType(getCemTypeText(attr, typeField));
+    const mapped = mapCemType(getCemTypeText(attr, typeSrc));
 
     let csType = mapped.csType;
 
@@ -129,7 +154,7 @@ function renderTagHelper(
 
   const enumHelpers = attrs
     .map((attr) => {
-      const mapped = mapCemType(getCemTypeText(attr, typeField));
+      const mapped = mapCemType(getCemTypeText(attr, typeSrc));
       if (!(mapped.isUnion && emitEnums && mapped.unionValues)) return null;
       const propName = toPascalCase(attr.name);
       const enumName = `${propName}Value`;

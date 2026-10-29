@@ -23,7 +23,7 @@ build or release process.
 
 ## Requirements
 
-- Node.js 14.17 or newer. A current Node.js LTS release is recommended.
+- A current Node.js LTS release is recommended.
 - A CEM with `schemaVersion` and `modules` fields.
 - .NET 8 SDK when using the default generated target framework (`net8.0`). Use another installed target framework with `targetFramework` if appropriate.
 - The Web Component JavaScript itself must still be loaded by the consuming application. This package generates .NET wrappers; it does not bundle or register the Web Components.
@@ -33,15 +33,18 @@ build or release process.
 Install the package and its peer dependency in the project that generates your manifest:
 
 ```sh
-pnpm add @wc-toolkit/dotnet-tools custom-elements-manifest
+npm i -D @wc-toolkit/dotnet-tools
 ```
 
 The package also exposes separate entry points for the generator, plugin, Tag Helper
 generator, and Blazor generator:
 
 ```ts
-import { publishDotNetTypes } from "@wc-toolkit/dotnet-tools";
-import { dotnetTypesPublishPlugin } from "@wc-toolkit/dotnet-tools/plugin";
+import { packDotNetTypes } from "@wc-toolkit/dotnet-tools";
+import {
+  dotnetTypesAnalyzerPlugin,
+  dotnetTypesGeneratorPlugin,
+} from "@wc-toolkit/dotnet-tools/plugin";
 import { generateTagHelpers } from "@wc-toolkit/dotnet-tools/tag-helpers";
 import { generateBlazorComponents } from "@wc-toolkit/dotnet-tools/blazor";
 ```
@@ -49,27 +52,26 @@ import { generateBlazorComponents } from "@wc-toolkit/dotnet-tools/blazor";
 ## Quick start: generate and pack
 
 The main API accepts a parsed CEM object. It creates a temporary project, generates the
-source files, builds an RCL, and packs it into a `.nupkg` file. Packing is a dry run by
-default, so the first invocation does not publish anything to NuGet.
+source files, builds an RCL, and packs it into a `.nupkg` file. This package never publishes
+to a NuGet feed; publishing remains under the component library maintainer's control.
 
 ```ts
 import { readFile } from "node:fs/promises";
-import { publishDotNetTypes } from "@wc-toolkit/dotnet-tools";
+import { packDotNetTypes } from "@wc-toolkit/dotnet-tools";
 
 const manifest = JSON.parse(await readFile("./custom-elements.json", "utf8"));
 
-const result = await publishDotNetTypes({
+const result = await packDotNetTypes({
   manifest,
   packageId: "Acme.Components",
   namespace: "Acme.Components",
   version: "1.0.0",
-  // dryRun defaults to true.
 });
 
-console.log(result.nupkgPath);
+console.log(result?.nupkgPath);
 ```
 
-The default work directory is `.cem-dotnet-publish/<packageId>`. Set `workDir` to control
+The default output directory is `.cem-dotnet-publish/<packageId>`. Set `outdir` to control
 where generated files and the package output are written. Each run removes and recreates
 that directory.
 
@@ -77,53 +79,250 @@ The result includes:
 
 - `projectDir`: generated RCL directory.
 - `nupkgPath`: path to the packed NuGet package.
-- `pushed`: whether the package was pushed to the configured NuGet source.
 - `tagHelperFileCount` and `blazorFileCount`: generated source-file counts.
 
-## Publishing to NuGet
+`packDotNetTypes` resolves to `undefined` when `skip: true` is set.
 
-Set `dryRun: false` only in a release workflow. The API key can be supplied through
-`nugetApiKey` or the `NUGET_API_KEY` environment variable. The default source is
-`https://api.nuget.org/v3/index.json`; set `nugetSource` for a private feed.
+Set `pack: false` to generate the RCL project and its files without running `dotnet restore`,
+`dotnet build`, or `dotnet pack`. The result still includes `projectDir` and generated file counts,
+but has no `nupkgPath`. This option also works with either plugin.
+
+Set `tagHelpers: false` or `blazor: false` to generate only one output kind. At least one must
+remain enabled; disabling both throws.
+
+### Options
+
+Only `manifest`, `packageId`, `namespace`, and `version` are required. These options apply to
+`packDotNetTypes` and to both plugins.
+
+| Option | Default | Purpose |
+| --- | --- | --- |
+| `manifest` | required | Parsed Custom Elements Manifest to generate from. Not accepted by the plugins. |
+| `packageId` | required | NuGet package ID. |
+| `namespace` | required | Namespace for generated C# and Razor types. |
+| `version` | required | Version to include in the package. |
+| `outdir` | `.cem-dotnet-publish/<packageId>` | Output directory for the generated RCL and package. |
+| `typeSrc` | `parsedType` | CEM property to read types from. Falls back to `parsedType`, then `type`. |
+| `exclude` | `[]` | Component declaration names to omit from generation. |
+| `skip` | `false` | Skips generation and packing entirely. |
+| `pack` | `true` | Creates the `.nupkg` after generation; set to `false` to leave the generated project un-packed. |
+| `debug` | `false` | Logs resolved options and each generated file. |
+| `tagHelpers` | `true` | Generate Tag Helpers into `TagHelpers/`. |
+| `blazor` | `true` | Generate Blazor component wrappers into `Blazor/`. |
+| `targetFramework` | `net8.0` | Target framework for the generated project. |
+| `emitEnumsForUnions` | `true` | Emits C# enums for string-literal unions in Tag Helpers. |
+| `validateParity` | `true` | Fails generation when a CEM member is missing from the Blazor model. |
+| `formValueMembers` | `["value", "checked"]` | Attribute/member names that represent live form values. |
+| `slotWrapperTag` | `"span"` | Element wrapping named slot content; `null` emits no wrapper. |
+| `booleanOffValue` | `"false"` | Attribute value written for an off tri-state boolean. |
+| `staticAssets` | `[]` | Files or directories to copy into the generated package's `wwwroot/`. |
+
+### Include web-component assets
+
+To distribute built JavaScript, CSS, or other static files in the NuGet package, pass them with
+`staticAssets`. Source paths are resolved from the current working directory. Directories are
+copied recursively; `destination` is relative to the generated project's `wwwroot/` and defaults
+to the source's basename.
 
 ```ts
-const result = await publishDotNetTypes({
+await packDotNetTypes({
   manifest,
   packageId: "Acme.Components",
   namespace: "Acme.Components",
-  version: process.env.RELEASE_VERSION!,
-  nugetSource: "https://api.nuget.org/v3/index.json",
-  dryRun: false,
+  version: "1.0.0",
+  staticAssets: [
+    {
+      source: "node_modules/@acme/elements/dist",
+      destination: "acme-elements",
+    },
+  ],
 });
 ```
 
-Do not put an API key in source control. `dotnet nuget push` is called with
-`--skip-duplicate` when publishing.
+The selected files are packed as Razor Class Library static web assets. Once the NuGet package
+is referenced by an ASP.NET Core or Blazor app, include the assets from the host page using the
+package ID in the `_content` path:
 
-## Build integration with a CEM plugin
+```html
+<link rel="stylesheet" href="_content/Acme.Components/acme-elements/elements.css" />
+<script type="module" src="_content/Acme.Components/acme-elements/index.js"></script>
+```
 
-If your manifest tool exposes an `onManifestGenerated` hook, use the plugin entry point to
-run generation whenever the manifest is produced. The plugin accepts all publish options
-except `manifest`; it receives the generated manifest from the hook.
+Adjust those paths to match the files in the source directory. This makes the assets available
+from the package; it does not automatically add script or stylesheet tags to the consuming app.
+Include any runtime dependencies the assets need, and check their licenses and redistribution
+requirements before bundling them.
+
+## Publishing to NuGet
+
+`@wc-toolkit/dotnet-tools` only generates and packs the project. Publish the resulting package
+from your own release workflow so your team controls when and where it is released. The pack
+result's `nupkgPath` identifies the package; for example:
+
+```sh
+dotnet nuget push \
+  .cem-dotnet-publish/Acme.Components/out/Acme.Components.1.0.0.nupkg \
+  --api-key "$NUGET_API_KEY" \
+  --source "https://api.nuget.org/v3/index.json" \
+  --skip-duplicate
+```
+
+For a private feed, pass its URL to `--source`. Store credentials in your CI secret store, not
+in source control or the generator config. Run the push as a separate, release-gated CI step
+after generation and package validation.
+
+NuGet does not universally require license metadata, but Microsoft recommends including an SPDX
+license expression or a license file. NuGet.org may display packages without license metadata as
+unlicensed, and private feeds can impose their own rules. When bundling third-party assets, retain
+any required license and notice files and make sure the package's licensing accurately covers its
+contents. This generator does not currently set NuGet license metadata.
+
+## Generate from your build pipeline
+
+There are three ways to trigger generation. All of them run the same
+`packDotNetTypes` pipeline and produce the same Tag Helpers, Blazor components, and NuGet
+package; only the trigger differs. Each plugin accepts all pack options except `manifest`,
+because the generated manifest is supplied by the build tool.
+
+### Programmatic generation
+
+Use the main API when you control when generation runs. This is the most reliable option for
+release builds because you can `await` the result.
 
 ```ts
-import { dotnetTypesPublishPlugin } from "@wc-toolkit/dotnet-tools/plugin";
+import { generateCem } from "@wc-toolkit/cem-generator";
+import { packDotNetTypes } from "@wc-toolkit/dotnet-tools";
 
-const dotnetPlugin = dotnetTypesPublishPlugin({
+const manifest = generateCem();
+
+await packDotNetTypes({
+  manifest,
   packageId: "Acme.Components",
   namespace: "Acme.Components",
   version: "1.0.0",
-  dryRun: true,
 });
+```
 
-// Add dotnetPlugin alongside the CEM analyzer plugin in your bundler config.
+The [quick start](#quick-start-generate-and-pack) shows the same call with a manifest read from
+disk instead of generated in-process.
+
+### CEM Generator plugin
+
+`dotnetTypesGeneratorPlugin` implements the generator's `afterGenerate` hook. Add it to the
+`plugins` option in `cem-generator.config.{js,mjs,cjs,ts}`, or pass it directly to
+`generateCem()`:
+
+```js
+// cem-generator.config.mjs
+import { dotnetTypesGeneratorPlugin } from "@wc-toolkit/dotnet-tools/plugin";
+
 export default {
-  plugins: [, /* CEM analyzer */ dotnetPlugin],
+  filePath: "dist/custom-elements.json",
+  include: ["src/**/*.ts"],
+  plugins: [
+    dotnetTypesGeneratorPlugin({
+      packageId: "Acme.Components",
+      namespace: "Acme.Components",
+      version: "1.0.0",
+    }),
+  ],
 };
 ```
 
-The plugin is framework-agnostic and returns the same publish result from its
-`onManifestGenerated` callback.
+The config is discovered automatically when you run the generator CLI:
+
+```sh
+cem generate
+```
+
+From a bundler, pass the same plugin object to `cemGeneratorPlugin()`:
+
+```ts
+// vite.config.ts
+import { cemGeneratorPlugin } from "@wc-toolkit/cem-generator-bundler/vite";
+import { dotnetTypesGeneratorPlugin } from "@wc-toolkit/dotnet-tools/plugin";
+
+const dotnetTypes = dotnetTypesGeneratorPlugin({
+  packageId: "Acme.Components",
+  namespace: "Acme.Components",
+  version: "1.0.0",
+});
+
+export default {
+  plugins: [
+    cemGeneratorPlugin({
+      output: "dist/custom-elements.json",
+      plugins: [dotnetTypes],
+    }),
+  ],
+};
+```
+
+### CEM Analyzer plugin
+
+`dotnetTypesAnalyzerPlugin` implements the analyzer's `packageLinkPhase` hook. Register it
+from the analyzer config file so the analyzer runs it after assembling the final manifest:
+
+```js
+// custom-elements-manifest.config.mjs
+import { dotnetTypesAnalyzerPlugin } from "@wc-toolkit/dotnet-tools/plugin";
+
+export default {
+  globs: ["src/**/*.ts"],
+  outdir: "dist",
+  plugins: [
+    dotnetTypesAnalyzerPlugin({
+      packageId: "Acme.Components",
+      namespace: "Acme.Components",
+      version: "1.0.0",
+    }),
+  ],
+};
+```
+
+The bundler integration then only needs to run the analyzer; it discovers
+`custom-elements-manifest.config.mjs` automatically:
+
+```ts
+// vite.config.ts
+import { defineConfig } from "vite";
+import { cemAnalyzerPlugin } from "@wc-toolkit/cem-analyzer-plugin/vite";
+
+export default defineConfig({
+  plugins: [cemAnalyzerPlugin()],
+});
+```
+
+You can also run the analyzer directly with its CLI (`cem analyze`) and the same config file.
+
+### Waiting for package generation
+
+The generator's `afterGenerate` and the analyzer's `packageLinkPhase` hooks are synchronous, so
+the plugins queue package generation in the background and log the result. Build tools do not wait for
+that work, and the process may exit before the package is written.
+
+Use the plugin route for local or watch builds where a staged package is enough. For release
+builds, call the API programmatically and `await packDotNetTypes(...)` as shown above.
+
+If you drive generation yourself and still want the plugin interface, wait on the plugin:
+
+```ts
+const dotnetTypes = dotnetTypesGeneratorPlugin({
+  packageId: "Acme.Components",
+  namespace: "Acme.Components",
+  version: "1.0.0",
+});
+
+const manifest = generateCem({
+  plugins: [dotnetTypes],
+});
+
+await dotnetTypes.flush();
+```
+
+`flush()` resolves with every queued `PackDotNetResult` and rejects if package generation failed.
+Packages are generated one at a time, so watch rebuilds do not collide in the shared output directory
+(`outdir`).
 
 ## Generated output
 
@@ -131,7 +330,7 @@ For every custom element declaration with `customElement: true` and a `tagName`,
 generator creates:
 
 ```text
-<workDir>
+<outdir>
   <packageId>.csproj
   build/<packageId>.props
   wwwroot/customElementInterop.js
@@ -164,7 +363,7 @@ Helpers. Attribute descriptions and element descriptions are emitted as C# XML
 documentation where available.
 
 When a manifest includes an extension type field such as `parsedType`, generation prefers
-`parsedType` automatically and falls back to `type`. Set `typeField` on `publishDotNetTypes`,
+`parsedType` automatically and falls back to `type`. Set `typeSrc` on `packDotNetTypes`,
 `generateTagHelpers`, or `generateBlazorComponents` to prefer another field; the fallback order
 remains the configured field, `parsedType`, then `type`.
 
@@ -330,17 +529,17 @@ Use the lower-level exports when you already manage the .NET project yourself:
 
 ```ts
 const tagHelpers = generateTagHelpers(manifest, {
-  outputDir: "./generated/TagHelpers",
+  outdir: "./generated/TagHelpers",
   namespace: "Acme.Components",
   emitEnumsForUnions: true,
-  typeField: "parsedType",
+  typeSrc: "parsedType",
   booleanOffValue: "false",
 });
 
 const blazor = generateBlazorComponents(manifest, {
-  outputDir: "./generated/Blazor",
+  outdir: "./generated/Blazor",
   namespace: "Acme.Components",
-  typeField: "parsedType",
+  typeSrc: "parsedType",
   formValueMembers: ["value", "checked"],
   slotWrapperTag: "span",
   booleanOffValue: "false",
@@ -348,8 +547,8 @@ const blazor = generateBlazorComponents(manifest, {
 });
 ```
 
-`scaffoldCombinedProject` creates the RCL project structure, while `packAndPush` restores,
-builds, packs, and optionally pushes an already-scaffolded project. These functions are
+`scaffoldCombinedProject` creates the RCL project structure, while `packNuGetPackage` restores,
+builds, and packs an already-scaffolded project. These functions are
 also exported from the package root.
 
 ### Validate CEM parity

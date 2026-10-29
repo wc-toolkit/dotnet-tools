@@ -45,13 +45,13 @@ const manifest: CemPackage = {
 
 describe("generateBlazorComponents", () => {
   it("generates markup, parameters, slots, and event interop", () => {
-    const outputDir = createOutputDirectory();
+    const outdir = createOutputDirectory();
     const generated = generateBlazorComponents(manifest, {
-      outputDir,
+      outdir,
       namespace: "Acme.Components",
     });
-    const markup = readFileSync(join(outputDir, "AcmeDatePicker.razor"), "utf8");
-    const codeBehind = readFileSync(join(outputDir, "AcmeDatePicker.razor.cs"), "utf8");
+    const markup = readFileSync(join(outdir, "AcmeDatePicker.razor"), "utf8");
+    const codeBehind = readFileSync(join(outdir, "AcmeDatePicker.razor.cs"), "utf8");
 
     expect(generated.map((file) => file.fileName)).toEqual([
       "CustomEventArgs.cs",
@@ -78,7 +78,7 @@ describe("generateBlazorComponents", () => {
   });
 
   it("does not add parameters that are absent from the manifest", () => {
-    const outputDir = createOutputDirectory();
+    const outdir = createOutputDirectory();
     generateBlazorComponents(
       {
         schemaVersion: "1.0.0",
@@ -97,17 +97,17 @@ describe("generateBlazorComponents", () => {
           },
         ],
       },
-      { outputDir, namespace: "Acme.Components" },
+      { outdir, namespace: "Acme.Components" },
     );
 
-    const codeBehind = readFileSync(join(outputDir, "AcmeSpinner.razor.cs"), "utf8");
+    const codeBehind = readFileSync(join(outdir, "AcmeSpinner.razor.cs"), "utf8");
 
     expect(codeBehind).toContain("public string? Dir { get; set; } = default;");
     expect(codeBehind).not.toContain("public string? Label");
   });
 
   it("generates named slots and native Blazor event types", () => {
-    const outputDir = createOutputDirectory();
+    const outdir = createOutputDirectory();
     generateBlazorComponents(
       {
         schemaVersion: "1.0.0",
@@ -136,12 +136,12 @@ describe("generateBlazorComponents", () => {
           },
         ],
       },
-      { outputDir, namespace: "Acme.Components" },
+      { outdir, namespace: "Acme.Components" },
     );
 
-    const markup = readFileSync(join(outputDir, "AcmeButton.razor"), "utf8");
-    const codeBehind = readFileSync(join(outputDir, "AcmeButton.razor.cs"), "utf8");
-    const types = readFileSync(join(outputDir, "BlazorTypes.cs"), "utf8");
+    const markup = readFileSync(join(outdir, "AcmeButton.razor"), "utf8");
+    const codeBehind = readFileSync(join(outdir, "AcmeButton.razor.cs"), "utf8");
+    const types = readFileSync(join(outdir, "BlazorTypes.cs"), "utf8");
 
     expect(markup).toContain('@onclick="OnClick"');
     expect(markup).toContain('@onpointerdown="OnPointerdown"');
@@ -180,7 +180,7 @@ describe("generateBlazorComponents", () => {
 
     const asSpan = createOutputDirectory();
     generateBlazorComponents(manifestWithSlots, {
-      outputDir: asSpan,
+      outdir: asSpan,
       namespace: "Acme.Components",
     });
     const spanMarkup = readFileSync(join(asSpan, "AcmeButton.razor"), "utf8");
@@ -188,7 +188,7 @@ describe("generateBlazorComponents", () => {
 
     const asDiv = createOutputDirectory();
     generateBlazorComponents(manifestWithSlots, {
-      outputDir: asDiv,
+      outdir: asDiv,
       namespace: "Acme.Components",
       slotWrapperTag: "div",
     });
@@ -203,7 +203,7 @@ describe("generateBlazorComponents", () => {
 
     const unwrapped = createOutputDirectory();
     generateBlazorComponents(manifestWithSlots, {
-      outputDir: unwrapped,
+      outdir: unwrapped,
       namespace: "Acme.Components",
       slotWrapperTag: null,
     });
@@ -215,11 +215,11 @@ describe("generateBlazorComponents", () => {
   });
 
   it("rejects an invalid slot wrapper tag", () => {
-    const outputDir = createOutputDirectory();
+    const outdir = createOutputDirectory();
 
     expect(() =>
       generateBlazorComponents(manifest, {
-        outputDir,
+        outdir,
         namespace: "Acme.Components",
         slotWrapperTag: 'span onload="alert(1)"',
       }),
@@ -227,7 +227,7 @@ describe("generateBlazorComponents", () => {
   });
 
   it("makes a boolean that defaults to true tri-state so false can be written", () => {
-    const outputDir = createOutputDirectory();
+    const outdir = createOutputDirectory();
     generateBlazorComponents(
       {
         schemaVersion: "1.0.0",
@@ -249,11 +249,11 @@ describe("generateBlazorComponents", () => {
           },
         ],
       },
-      { outputDir, namespace: "Acme.Components" },
+      { outdir, namespace: "Acme.Components" },
     );
 
-    const markup = readFileSync(join(outputDir, "AcmeToggle.razor"), "utf8");
-    const codeBehind = readFileSync(join(outputDir, "AcmeToggle.razor.cs"), "utf8");
+    const markup = readFileSync(join(outdir, "AcmeToggle.razor"), "utf8");
+    const codeBehind = readFileSync(join(outdir, "AcmeToggle.razor.cs"), "utf8");
 
     // Omitting the attribute would leave the element's own default (on) in place, so false is
     // written out explicitly instead of being unrepresentable.
@@ -267,7 +267,7 @@ describe("generateBlazorComponents", () => {
   });
 
   it("honours a configured boolean off value", () => {
-    const outputDir = createOutputDirectory();
+    const outdir = createOutputDirectory();
     generateBlazorComponents(
       {
         schemaVersion: "1.0.0",
@@ -286,15 +286,15 @@ describe("generateBlazorComponents", () => {
           },
         ],
       },
-      { outputDir, namespace: "Acme.Components", booleanOffValue: "off" },
+      { outdir, namespace: "Acme.Components", booleanOffValue: "off" },
     );
 
-    const markup = readFileSync(join(outputDir, "AcmeToggle.razor"), "utf8");
+    const markup = readFileSync(join(outdir, "AcmeToggle.razor"), "utf8");
     expect(markup).toContain('spellcheck="@RenderOnOffAttribute("spellcheck", Spellcheck, "off")"');
   });
 
   it("wires the value round-trip through HandleValueChanged, not straight to the callback", () => {
-    const outputDir = createOutputDirectory();
+    const outdir = createOutputDirectory();
     generateBlazorComponents(
       {
         schemaVersion: "1.0.0",
@@ -315,12 +315,12 @@ describe("generateBlazorComponents", () => {
           },
         ],
       },
-      { outputDir, namespace: "Acme.Components" },
+      { outdir, namespace: "Acme.Components" },
     );
 
-    const markup = readFileSync(join(outputDir, "AcmeFormControl.razor"), "utf8");
-    const codeBehind = readFileSync(join(outputDir, "AcmeFormControl.razor.cs"), "utf8");
-    const inputBase = readFileSync(join(outputDir, "GeneratedInputBase.cs"), "utf8");
+    const markup = readFileSync(join(outdir, "AcmeFormControl.razor"), "utf8");
+    const codeBehind = readFileSync(join(outdir, "AcmeFormControl.razor.cs"), "utf8");
+    const inputBase = readFileSync(join(outdir, "GeneratedInputBase.cs"), "utf8");
 
     // Every link in the chain has to hold, or the bound value never updates from the element.
     // 1. The event must reach HandleValueChanged. Binding it straight to OnChange skips the read-back.
@@ -335,7 +335,7 @@ describe("generateBlazorComponents", () => {
   });
 
   it("lets Immediate choose which event carries the value", () => {
-    const outputDir = createOutputDirectory();
+    const outdir = createOutputDirectory();
     generateBlazorComponents(
       {
         schemaVersion: "1.0.0",
@@ -356,12 +356,12 @@ describe("generateBlazorComponents", () => {
           },
         ],
       },
-      { outputDir, namespace: "Acme.Components" },
+      { outdir, namespace: "Acme.Components" },
     );
 
-    const markup = readFileSync(join(outputDir, "AcmeFormControl.razor"), "utf8");
-    const codeBehind = readFileSync(join(outputDir, "AcmeFormControl.razor.cs"), "utf8");
-    const inputBase = readFileSync(join(outputDir, "GeneratedInputBase.cs"), "utf8");
+    const markup = readFileSync(join(outdir, "AcmeFormControl.razor"), "utf8");
+    const codeBehind = readFileSync(join(outdir, "AcmeFormControl.razor.cs"), "utf8");
+    const inputBase = readFileSync(join(outdir, "GeneratedInputBase.cs"), "utf8");
 
     expect(inputBase).toContain("[Parameter] public bool Immediate { get; set; }");
     // Both events are routed through a handler that consults Immediate, so exactly one of them
@@ -375,7 +375,7 @@ describe("generateBlazorComponents", () => {
   });
 
   it("omits Immediate for an element that declares only input", () => {
-    const outputDir = createOutputDirectory();
+    const outdir = createOutputDirectory();
     generateBlazorComponents(
       {
         schemaVersion: "1.0.0",
@@ -396,11 +396,11 @@ describe("generateBlazorComponents", () => {
           },
         ],
       },
-      { outputDir, namespace: "Acme.Components" },
+      { outdir, namespace: "Acme.Components" },
     );
 
-    const markup = readFileSync(join(outputDir, "AcmeTyping.razor"), "utf8");
-    const codeBehind = readFileSync(join(outputDir, "AcmeTyping.razor.cs"), "utf8");
+    const markup = readFileSync(join(outdir, "AcmeTyping.razor"), "utf8");
+    const codeBehind = readFileSync(join(outdir, "AcmeTyping.razor.cs"), "utf8");
 
     // input is the only event that can carry the value, so there is no choice to expose.
     expect(markup).toContain('@oninput="HandleValueChanged"');
@@ -412,7 +412,7 @@ describe("generateBlazorComponents", () => {
   });
 
   it("binds the value on input when the element has no change event", () => {
-    const outputDir = createOutputDirectory();
+    const outdir = createOutputDirectory();
     generateBlazorComponents(
       {
         schemaVersion: "1.0.0",
@@ -433,18 +433,18 @@ describe("generateBlazorComponents", () => {
           },
         ],
       },
-      { outputDir, namespace: "Acme.Components" },
+      { outdir, namespace: "Acme.Components" },
     );
 
-    const markup = readFileSync(join(outputDir, "AcmeTyping.razor"), "utf8");
-    const codeBehind = readFileSync(join(outputDir, "AcmeTyping.razor.cs"), "utf8");
+    const markup = readFileSync(join(outdir, "AcmeTyping.razor"), "utf8");
+    const codeBehind = readFileSync(join(outdir, "AcmeTyping.razor.cs"), "utf8");
 
     expect(markup).toContain('@oninput="HandleValueChanged"');
     expect(codeBehind).toContain("await OnInput.InvokeAsync(args);");
   });
 
   it("leaves non-form components bound directly to their callbacks", () => {
-    const outputDir = createOutputDirectory();
+    const outdir = createOutputDirectory();
     generateBlazorComponents(
       {
         schemaVersion: "1.0.0",
@@ -463,16 +463,16 @@ describe("generateBlazorComponents", () => {
           },
         ],
       },
-      { outputDir, namespace: "Acme.Components" },
+      { outdir, namespace: "Acme.Components" },
     );
 
-    const markup = readFileSync(join(outputDir, "AcmeButton.razor"), "utf8");
+    const markup = readFileSync(join(outdir, "AcmeButton.razor"), "utf8");
     expect(markup).toContain('@onchange="OnChange"');
     expect(markup).not.toContain("HandleValueChanged");
   });
 
   it("generates form binding and typed methods from CEM members", () => {
-    const outputDir = createOutputDirectory();
+    const outdir = createOutputDirectory();
     generateBlazorComponents(
       {
         schemaVersion: "1.0.0",
@@ -506,11 +506,11 @@ describe("generateBlazorComponents", () => {
           },
         ],
       },
-      { outputDir, namespace: "Acme.Components" },
+      { outdir, namespace: "Acme.Components" },
     );
 
-    const markup = readFileSync(join(outputDir, "AcmeFormControl.razor"), "utf8");
-    const codeBehind = readFileSync(join(outputDir, "AcmeFormControl.razor.cs"), "utf8");
+    const markup = readFileSync(join(outdir, "AcmeFormControl.razor"), "utf8");
+    const codeBehind = readFileSync(join(outdir, "AcmeFormControl.razor.cs"), "utf8");
 
     expect(markup).toContain('value="@CurrentValueAsString"');
     expect(markup).toContain('@onchange="HandleValueChanged"');
@@ -524,7 +524,7 @@ describe("generateBlazorComponents", () => {
   });
 
   it("honors configured form value members", () => {
-    const outputDir = createOutputDirectory();
+    const outdir = createOutputDirectory();
     generateBlazorComponents(
       {
         schemaVersion: "1.0.0",
@@ -548,10 +548,10 @@ describe("generateBlazorComponents", () => {
           },
         ],
       },
-      { outputDir, namespace: "Acme.Components", formValueMembers: ["selection-range"] },
+      { outdir, namespace: "Acme.Components", formValueMembers: ["selection-range"] },
     );
 
-    const codeBehind = readFileSync(join(outputDir, "AcmeEditor.razor.cs"), "utf8");
+    const codeBehind = readFileSync(join(outdir, "AcmeEditor.razor.cs"), "utf8");
 
     expect(codeBehind).toContain("GeneratedInputBase<string?>");
     expect(codeBehind).toContain('LiveValuePropertyName => "selection-range"');
@@ -559,7 +559,7 @@ describe("generateBlazorComponents", () => {
   });
 
   it("generates records for object attributes, method parameters, and returns", () => {
-    const outputDir = createOutputDirectory();
+    const outdir = createOutputDirectory();
     generateBlazorComponents(
       {
         schemaVersion: "1.0.0",
@@ -594,11 +594,11 @@ describe("generateBlazorComponents", () => {
           },
         ],
       },
-      { outputDir, namespace: "Acme.Components" },
+      { outdir, namespace: "Acme.Components" },
     );
 
-    const codeBehind = readFileSync(join(outputDir, "AcmePanel.razor.cs"), "utf8");
-    const types = readFileSync(join(outputDir, "BlazorTypes.cs"), "utf8");
+    const codeBehind = readFileSync(join(outdir, "AcmePanel.razor.cs"), "utf8");
+    const types = readFileSync(join(outdir, "BlazorTypes.cs"), "utf8");
 
     expect(codeBehind).toContain("public AcmePanelPlacementValue? Placement { get; set; }");
     expect(codeBehind).toContain(
@@ -623,7 +623,7 @@ describe("generateBlazorComponents", () => {
   });
 
   it("excludes private and protected members", () => {
-    const outputDir = createOutputDirectory();
+    const outdir = createOutputDirectory();
     generateBlazorComponents(
       {
         schemaVersion: "1.0.0",
@@ -669,10 +669,10 @@ describe("generateBlazorComponents", () => {
           },
         ],
       },
-      { outputDir, namespace: "Acme.Components" },
+      { outdir, namespace: "Acme.Components" },
     );
 
-    const codeBehind = readFileSync(join(outputDir, "AcmeWidget.razor.cs"), "utf8");
+    const codeBehind = readFileSync(join(outdir, "AcmeWidget.razor.cs"), "utf8");
 
     expect(codeBehind).toContain("public Task OpenAsync()");
     expect(codeBehind).toContain("public Task ResetAsync()");
@@ -684,10 +684,10 @@ describe("generateBlazorComponents", () => {
   });
 
   it("gives generated inputs a default ValueExpression so they render without bind-Value", () => {
-    const outputDir = createOutputDirectory();
-    generateBlazorComponents(manifest, { outputDir, namespace: "Acme.Components" });
+    const outdir = createOutputDirectory();
+    generateBlazorComponents(manifest, { outdir, namespace: "Acme.Components" });
 
-    const inputBase = readFileSync(join(outputDir, "GeneratedInputBase.cs"), "utf8");
+    const inputBase = readFileSync(join(outdir, "GeneratedInputBase.cs"), "utf8");
 
     // InputBase throws unless ValueExpression is set; Blazor only supplies it for bind-Value.
     expect(inputBase).toMatch(/protected GeneratedInputBase\(\)/);
@@ -698,11 +698,11 @@ describe("generateBlazorComponents", () => {
   });
 
   it("exposes element validity helpers on the shared bases", () => {
-    const outputDir = createOutputDirectory();
-    generateBlazorComponents(manifest, { outputDir, namespace: "Acme.Components" });
+    const outdir = createOutputDirectory();
+    generateBlazorComponents(manifest, { outdir, namespace: "Acme.Components" });
 
-    const componentBase = readFileSync(join(outputDir, "GeneratedComponentBase.cs"), "utf8");
-    const inputBase = readFileSync(join(outputDir, "GeneratedInputBase.cs"), "utf8");
+    const componentBase = readFileSync(join(outdir, "GeneratedComponentBase.cs"), "utf8");
+    const inputBase = readFileSync(join(outdir, "GeneratedInputBase.cs"), "utf8");
 
     for (const source of [componentBase, inputBase]) {
       expect(source).toContain("public Task SetElementValidityAsync(string message)");
@@ -713,11 +713,11 @@ describe("generateBlazorComponents", () => {
   });
 
   it("exposes the on/off attribute helper on both shared bases", () => {
-    const outputDir = createOutputDirectory();
-    generateBlazorComponents(manifest, { outputDir, namespace: "Acme.Components" });
+    const outdir = createOutputDirectory();
+    generateBlazorComponents(manifest, { outdir, namespace: "Acme.Components" });
 
     for (const fileName of ["GeneratedComponentBase.cs", "GeneratedInputBase.cs"]) {
-      const source = readFileSync(join(outputDir, fileName), "utf8");
+      const source = readFileSync(join(outdir, fileName), "utf8");
       expect(source).toContain(
         "protected object? RenderOnOffAttribute(string name, bool? value, string offValue)",
       );

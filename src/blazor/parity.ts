@@ -10,7 +10,8 @@ export interface BlazorParityIssue {
 }
 
 export interface BlazorParityOptions {
-  typeField?: string;
+  typeSrc?: string;
+  exclude?: string[];
   models?: BlazorComponentModel[];
 }
 
@@ -19,8 +20,10 @@ export function findBlazorParityIssues(
   manifest: CemPackage,
   options: BlazorParityOptions = {},
 ): BlazorParityIssue[] {
-  const declarations = getCustomElementDeclarations(manifest);
-  const models = options.models ?? createBlazorComponentModels(manifest, options.typeField);
+  const declarations = getCustomElementDeclarations(manifest, options.exclude);
+  const models =
+    options.models ??
+    createBlazorComponentModels(manifest, options.typeSrc, undefined, options.exclude);
   const modelByTag = new Map(models.map((model) => [model.tagName, model]));
   const issues: BlazorParityIssue[] = [];
 

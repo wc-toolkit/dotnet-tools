@@ -20,10 +20,19 @@ import type { GeneratedFile } from "../tag-helpers/generate.js";
 import { findBlazorParityIssues } from "./parity.js";
 
 export interface BlazorGenOptions {
-  outputDir: string;
+  outdir: string;
   namespace: string;
-  /** Type property to prefer before the parsedType/type fallbacks. */
-  typeField?: string;
+  /**
+   * CEM property to read type information from. Defaults to `parsedType`, falling back to
+   * `parsedType` and then `type` when the configured property is absent.
+   */
+  typeSrc?: string;
+  /** Component names to exclude from generation. */
+  exclude?: string[];
+  /** Skips generation and returns no files. */
+  skip?: boolean;
+  /** Logs each generated file. */
+  debug?: boolean;
   /** Validate that every CEM API member is represented in the normalized model. */
   validateParity?: boolean;
   /** Attribute/member names that identify the live value of a form-associated element. */
@@ -48,32 +57,41 @@ export function generateBlazorComponents(
   options: BlazorGenOptions,
 ): GeneratedFile[] {
   const {
-    outputDir,
+    outdir,
     namespace,
-    typeField,
+    typeSrc = "parsedType",
+    exclude = [],
+    skip = false,
+    debug = false,
     validateParity = true,
     formValueMembers,
     slotWrapperTag,
     booleanOffValue = DEFAULT_BOOLEAN_OFF_VALUE,
   } = options;
-  const slotTag = normalizeSlotWrapperTag(slotWrapperTag);
-  mkdirSync(outputDir, { recursive: true });
 
-  writeBlazorSupportFiles(outputDir, options.namespace);
+  if (skip) {
+    if (debug) console.log("[dotnet-tools] Blazor generation skipped.");
+    return [];
+  }
+
+  const slotTag = normalizeSlotWrapperTag(slotWrapperTag);
+  mkdirSync(outdir, { recursive: true });
+
+  writeBlazorSupportFiles(outdir, namespace);
   const generated: GeneratedFile[] = [
     "CustomEventArgs.cs",
     "GeneratedComponentBase.cs",
     "GeneratedInputBase.cs",
-  ].map((fileName) => ({ fileName, filePath: join(outputDir, fileName) }));
+  ].map((fileName) => ({ fileName, filePath: join(outdir, fileName) }));
 
-  const models = createBlazorComponentModels(manifest, typeField, formValueMembers);
+  const models = createBlazorComponentModels(manifest, typeSrc, formValueMembers, exclude);
   if (validateParity) {
-    const parityIssues = findBlazorParityIssues(manifest, { models, typeField });
+    const parityIssues = findBlazorParityIssues(manifest, { models, typeSrc, exclude });
     if (parityIssues.length > 0) {
       throw new Error(parityIssues.map((issue) => issue.message).join("\n"));
     }
   }
-  const typePath = join(outputDir, "BlazorTypes.cs");
+  const typePath = join(outdir, "BlazorTypes.cs");
   writeFileSync(
     typePath,
     renderBlazorTypes(models[0]?.typeRegistry ?? { enums: [], records: [] }, namespace),
@@ -82,13 +100,14 @@ export function generateBlazorComponents(
   generated.push({ fileName: "BlazorTypes.cs", filePath: typePath });
 
   for (const model of models) {
-    const razorPath = join(outputDir, `${model.componentName}.razor`);
+    const razorPath = join(outdir, `${model.componentName}.razor`);
     writeFileSync(razorPath, renderRazorMarkup(model, slotTag, booleanOffValue), "utf-8");
     generated.push({ fileName: `${model.componentName}.razor`, filePath: razorPath });
 
-    const codeBehindPath = join(outputDir, `${model.componentName}.razor.cs`);
+    const codeBehindPath = join(outdir, `${model.componentName}.razor.cs`);
     writeFileSync(codeBehindPath, renderCodeBehind(model, namespace), "utf-8");
     generated.push({ fileName: `${model.componentName}.razor.cs`, filePath: codeBehindPath });
+    if (debug) console.log(`[dotnet-tools] Blazor component ${model.componentName}: ${razorPath}`);
   }
 
   return generated;

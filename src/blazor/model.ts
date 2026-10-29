@@ -124,17 +124,18 @@ export interface BlazorComponentModel {
 
 export function createBlazorComponentModels(
   manifest: CemPackage,
-  typeField?: string,
+  typeSrc = "parsedType",
   formValueMembers = ["value", "checked"],
+  exclude: string[] = [],
 ): BlazorComponentModel[] {
-  const models = getCustomElementDeclarations(manifest).map((declaration) => {
+  const models = getCustomElementDeclarations(manifest, exclude).map((declaration) => {
     const attributes: BlazorAttributeModel[] = (declaration.attributes ?? []).map((attribute) => ({
       name: attribute.name,
       propertyName: toPascalCase(attribute.name),
-      mappedType: mapCemType(getCemTypeText(attribute, typeField)),
+      mappedType: mapCemType(getCemTypeText(attribute, typeSrc)),
       description: attribute.description,
       defaultValue: attribute.default,
-      typeText: getCemTypeText(attribute, typeField),
+      typeText: getCemTypeText(attribute, typeSrc),
       booleanMode: booleanAttributeMode(attribute.default),
     }));
     const methods: BlazorMethodModel[] = (declaration.members ?? [])
@@ -144,12 +145,12 @@ export function createBlazorComponentModels(
       .map((member) => ({
         member,
         name: toPascalCase(member.name) + "Async",
-        returnType: unwrapPromise(getCemTypeText(member.return, typeField)),
+        returnType: unwrapPromise(getCemTypeText(member.return, typeSrc)),
         parameters: (member.parameters ?? []).map((parameter) => ({
           name: parameter.name,
-          type: mapCemType(getCemTypeText(parameter, typeField)).csType,
+          type: mapCemType(getCemTypeText(parameter, typeSrc)).csType,
           optional: parameter.optional ?? false,
-          typeText: getCemTypeText(parameter, typeField),
+          typeText: getCemTypeText(parameter, typeSrc),
         })),
       }));
 
@@ -168,7 +169,7 @@ export function createBlazorComponentModels(
       attributes,
       events: (declaration.events ?? []).map((event) => {
         const callbackType = standardEventType(event.name);
-        const detailFields = parseObjectType(resolveEventDetailType(event, typeField));
+        const detailFields = parseObjectType(resolveEventDetailType(event, typeSrc));
         const detailTypeName = detailFields
           ? `${toPascalCase(declaration.tagName)}${toPascalCase(event.name)}EventArgs`
           : undefined;
@@ -230,9 +231,7 @@ export function createBlazorComponentModels(
     }
     for (const event of model.events) {
       const source = model.declaration.events?.find((candidate) => candidate.name === event.name);
-      const fields = parseObjectType(
-        source ? resolveEventDetailType(source, typeField) : undefined,
-      );
+      const fields = parseObjectType(source ? resolveEventDetailType(source, typeSrc) : undefined);
       if (
         event.detailTypeName &&
         fields &&
@@ -303,12 +302,12 @@ function getTypeValueText(value: unknown): string | undefined {
 
 function resolveEventDetailType(
   event: { type?: unknown; parsedType?: unknown; detail?: unknown },
-  typeField?: string,
+  typeSrc?: string,
 ): string | undefined {
   const detail = getTypeValueText(event.detail);
   if (detail) return detail;
 
-  const preferred = getTypeValueText((event as Record<string, unknown>)[typeField ?? "parsedType"]);
+  const preferred = getTypeValueText((event as Record<string, unknown>)[typeSrc ?? "parsedType"]);
   const type = preferred ?? getTypeValueText(event.parsedType) ?? getTypeValueText(event.type);
   const match = type?.match(/^(?:CustomEvent|Event)<(.+)>$/);
   return match?.[1] ?? type;

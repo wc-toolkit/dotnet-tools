@@ -47,8 +47,8 @@ const manifest: CemPackage = {
 
 describe("generateTagHelpers", () => {
   it("generates a typed helper and enum for custom elements", () => {
-    const outputDir = createOutputDirectory();
-    const generated = generateTagHelpers(manifest, { outputDir, namespace: "Acme.Components" });
+    const outdir = createOutputDirectory();
+    const generated = generateTagHelpers(manifest, { outdir, namespace: "Acme.Components" });
     const source = readFileSync(generated[0].filePath, "utf8");
 
     expect(generated.map((file) => file.fileName)).toEqual(["AcmeDatePickerTagHelper.cs"]);
@@ -61,9 +61,9 @@ describe("generateTagHelpers", () => {
   });
 
   it("keeps unions as strings when enum generation is disabled", () => {
-    const outputDir = createOutputDirectory();
+    const outdir = createOutputDirectory();
     const generated = generateTagHelpers(manifest, {
-      outputDir,
+      outdir,
       namespace: "Acme.Components",
       emitEnumsForUnions: false,
     });
@@ -74,8 +74,8 @@ describe("generateTagHelpers", () => {
   });
 
   it("makes a boolean that defaults to true tri-state so false can be written", () => {
-    const outputDir = createOutputDirectory();
-    const generated = generateTagHelpers(manifest, { outputDir, namespace: "Acme.Components" });
+    const outdir = createOutputDirectory();
+    const generated = generateTagHelpers(manifest, { outdir, namespace: "Acme.Components" });
     const source = readFileSync(generated[0].filePath, "utf8");
 
     expect(source).toContain("public bool? Spellcheck { get; set; }");
@@ -88,9 +88,9 @@ describe("generateTagHelpers", () => {
   });
 
   it("honours a configured boolean off value", () => {
-    const outputDir = createOutputDirectory();
+    const outdir = createOutputDirectory();
     const generated = generateTagHelpers(manifest, {
-      outputDir,
+      outdir,
       namespace: "Acme.Components",
       booleanOffValue: "off",
     });
@@ -102,8 +102,8 @@ describe("generateTagHelpers", () => {
   });
 
   it("formats numeric attribute values with the invariant culture", () => {
-    const outputDir = createOutputDirectory();
-    const generated = generateTagHelpers(manifest, { outputDir, namespace: "Acme.Components" });
+    const outdir = createOutputDirectory();
+    const generated = generateTagHelpers(manifest, { outdir, namespace: "Acme.Components" });
     const source = readFileSync(generated[0].filePath, "utf8");
 
     // Without this, a comma-decimal locale renders rotate="2,5", which the element cannot parse.
@@ -114,8 +114,8 @@ describe("generateTagHelpers", () => {
   });
 
   it("serializes collection attributes as JSON rather than the CLR type name", () => {
-    const outputDir = createOutputDirectory();
-    const generated = generateTagHelpers(manifest, { outputDir, namespace: "Acme.Components" });
+    const outdir = createOutputDirectory();
+    const generated = generateTagHelpers(manifest, { outdir, namespace: "Acme.Components" });
     const source = readFileSync(generated[0].filePath, "utf8");
 
     // List<T>.ToString() yields "IReadOnlyList`1[System.String]", which is not a usable value.
@@ -124,5 +124,72 @@ describe("generateTagHelpers", () => {
       'output.Attributes.SetAttribute("labels", JsonSerializer.Serialize(Labels));',
     );
     expect(source).not.toContain("Labels.ToString()");
+  });
+
+  it("prefers parsedType by default and honours typeSrc", () => {
+    const typedManifest: CemPackage = {
+      schemaVersion: "1.0.0",
+      modules: [
+        {
+          path: "components.ts",
+          declarations: [
+            {
+              kind: "class",
+              name: "Typed",
+              customElement: true,
+              tagName: "acme-typed",
+              attributes: [
+                {
+                  name: "count",
+                  type: { text: "number" },
+                  parsedType: { text: "boolean" },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const defaultOutdir = createOutputDirectory();
+    const defaultSource = readFileSync(
+      generateTagHelpers(typedManifest, { outdir: defaultOutdir, namespace: "Acme" })[0].filePath,
+      "utf8",
+    );
+
+    const typeOutdir = createOutputDirectory();
+    const typeSource = readFileSync(
+      generateTagHelpers(typedManifest, {
+        outdir: typeOutdir,
+        namespace: "Acme",
+        typeSrc: "type",
+      })[0].filePath,
+      "utf8",
+    );
+
+    expect(defaultSource).toContain("public bool Count { get; set; }");
+    expect(typeSource).toContain("public double? Count { get; set; }");
+  });
+
+  it("excludes components by name", () => {
+    const outdir = createOutputDirectory();
+    const generated = generateTagHelpers(manifest, {
+      outdir,
+      namespace: "Acme.Components",
+      exclude: ["DatePicker"],
+    });
+
+    expect(generated).toEqual([]);
+  });
+
+  it("returns no files when skipped", () => {
+    const outdir = createOutputDirectory();
+    const generated = generateTagHelpers(manifest, {
+      outdir,
+      namespace: "Acme.Components",
+      skip: true,
+    });
+
+    expect(generated).toEqual([]);
   });
 });

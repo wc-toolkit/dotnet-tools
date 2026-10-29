@@ -29,6 +29,10 @@ describe("Blazor CEM parity", () => {
     expect(findBlazorParityIssues(manifest)).toEqual([]);
   });
 
+  it("ignores excluded components", () => {
+    expect(findBlazorParityIssues(manifest, { exclude: ["Picker"] })).toEqual([]);
+  });
+
   it("does not report private or protected members as missing", () => {
     const scoped: CemPackage = {
       schemaVersion: "1.0.0",

@@ -76,11 +76,11 @@ export interface CemPackage {
 
 export type CustomElementDecl = CemDeclaration & { tagName: string };
 
-export function getCemTypeText(value: unknown, typeField = "parsedType"): string | undefined {
+export function getCemTypeText(value: unknown, typeSrc = "parsedType"): string | undefined {
   const getText = (type: CemTypeValue | undefined): string | undefined =>
     typeof type === "string" ? type : type?.text;
   const record = value as Record<string, CemTypeValue | undefined> | undefined;
-  const preferred = getText(record?.[typeField]);
+  const preferred = getText(record?.[typeSrc]);
   return preferred ?? getText(record?.parsedType) ?? getText(record?.type);
 }
 
@@ -101,11 +101,14 @@ export function isExposedMember(member: { privacy?: CemPrivacy }): boolean {
   return privacy !== "private" && privacy !== "protected";
 }
 
-export function getCustomElementDeclarations(manifest: CemPackage): CustomElementDecl[] {
+export function getCustomElementDeclarations(
+  manifest: CemPackage,
+  exclude: string[] = [],
+): CustomElementDecl[] {
   const results: CustomElementDecl[] = [];
   for (const mod of manifest.modules ?? []) {
     for (const decl of mod.declarations ?? []) {
-      if (decl.customElement && decl.tagName) {
+      if (decl.customElement && decl.tagName && !exclude.includes(decl.name)) {
         const members = (decl.members ?? []).filter(isExposedMember);
         const declared = decl.attributes?.filter(isExposedMember);
         const attributes =
