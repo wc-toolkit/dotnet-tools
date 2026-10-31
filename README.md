@@ -1,5 +1,11 @@
 # .NET Tools for Custom Elements
 
+<div align="center">
+  
+![workbench with tools, html, css, javascript, and .NET logos](https://raw.githubusercontent.com/wc-toolkit/dotnet-tools/refs/heads/main/assets/wc-toolkit_dotnet.png)
+
+</div>
+
 `@wc-toolkit/dotnet-tools` turns a [Custom Elements Manifest](https://custom-elements-manifest.open-wc.org/)
 (CEM) into a .NET package containing both [ASP.NET Core Tag Helpers](https://learn.microsoft.com/en-us/aspnet/core/mvc/views/tag-helpers/intro?view=aspnetcore-10.0) and [Blazor component
 wrappers](https://learn.microsoft.com/en-us/aspnet/core/blazor/?view=aspnetcore-10.0). It is intended for teams that build Web Components in JavaScript or TypeScript
