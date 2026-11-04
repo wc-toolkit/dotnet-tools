@@ -2,7 +2,7 @@
 
 <div align="center">
   
-![workbench with tools, html, css, javascript, and .NET logos](https://raw.githubusercontent.com/wc-toolkit/dotnet-tools/refs/heads/main/assets/wc-toolkit_dotnet.png)
+![workbench with tools, html, css, javascript, and .NET logos](./assets/wc-toolkit_dotnet.png)
 
 </div>
 
