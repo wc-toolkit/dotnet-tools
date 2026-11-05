@@ -185,7 +185,9 @@ public class GeneratedDisposeTests : TestContext
     [Fact]
     public async Task DisposingAnInputUnbindsItsEvents()
     {
-        JSInterop.SetupVoid("customElementInterop.unbindEvents", _ => true);
+        JSInterop
+            .SetupVoid("customElementInterop.unbindEvents", _ => true)
+            .SetVoidResult();
 
         var component = RenderComponent<WaInput>();
         await component.Instance.DisposeAsync();
