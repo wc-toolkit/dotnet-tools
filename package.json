@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "description": "Generates ASP.NET Tag Helpers and Blazor component wrappers from a Custom Elements Manifest and packs them into one NuGet package.",
   "type": "module",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
