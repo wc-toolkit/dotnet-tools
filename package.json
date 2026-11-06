@@ -3,6 +3,20 @@
   "version": "1.0.0",
   "packageManager": "pnpm@11.8.0",
   "description": "Generates ASP.NET Tag Helpers and Blazor component wrappers from a Custom Elements Manifest and packs them into one NuGet package.",
+  "keywords": [
+    "custom-elements",
+    "custom-elements-manifest",
+    "cem",
+    "web-components",
+    "components",
+    "dotnet",
+    "razor",
+    "blazor",
+    "aspnet-core",
+    "tag-helpers",
+    "wc-toolkit",
+    "@wc-toolkit/dotnet-tools"
+  ],
   "type": "module",
   "files": [
     "dist",
