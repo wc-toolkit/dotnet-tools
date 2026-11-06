@@ -1,5 +1,11 @@
 # @wc-toolkit/dotnet-tools
 
+## 1.1.0
+
+### Minor Changes
+
+- 9c6598e: Add npm keywords to improve package discoverability.
+
 ## 1.0.0
 
 ### Major Changes
